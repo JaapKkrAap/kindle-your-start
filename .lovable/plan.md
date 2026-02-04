@@ -1,136 +1,100 @@
-Character-Based Roleplay Application
 
-A dark, immersive single-user roleplay platform where you can create detailed characters, define multiple {{User}} Personas, and engage in persistent, story-driven conversations where the AI dynamically adapts its responses to both the active character and the active user persona.
 
-⸻
+# Testing the Roleplay Application
 
-1. Character & User Persona Management
+To test the app end-to-end, I need to fix several issues and add the ability to manually enter an API key.
 
-Character Creation Interface
-	•	Full-featured character creation form with:
-	•	Name and avatar/portrait upload
-	•	Detailed backstory editor (rich text)
-	•	Personality traits (selectable tags + custom entries)
-	•	Speech style examples and patterns
-	•	Behavioral boundaries (what the character will/won’t do)
-	•	First message template (how they introduce themselves)
-	•	Character cards displayed in a gallery view for selection
-	•	Edit and duplicate existing characters
+---
 
-{{User}} Persona System
-	•	Create multiple User Personas representing how you appear in roleplay
-	•	Each persona includes:
-	•	Persona name and optional avatar
-	•	Roleplay identity/backstory (who you are in this narrative)
-	•	Personality traits and emotional tendencies
-	•	Speech style (formal, casual, dominant, poetic, etc.)
-	•	Behavioral boundaries and preferences
-	•	Default tone and interaction style
-	•	Personas selectable per session
-	•	AI adjusts its language, reactions, and assumptions based on the active persona
-	•	Ability to switch personas mid-conversation (with optional in-world justification)
+## Current Issues Found
 
-Libraries
-	•	Character Library
-	•	Visual gallery of all characters with portraits
-	•	Quick-switch between characters during sessions
-	•	Character status indicators (last played, memory size)
-	•	User Persona Library
-	•	Visual list of all user personas
-	•	Quick persona switching
-	•	Persona usage history and last active session
+1. **Chat not connected to AI** - The ChatPage uses a placeholder `setTimeout` instead of calling the actual AI edge function
+2. **No API key input** - The settings page tells users to configure the API key in "project secrets" but doesn't provide a way to enter it
+3. **Settings sync bug** - Uses `useState` incorrectly for effect logic (should be `useEffect`)
 
-⸻
+---
 
-2. Chat Interface
+## Implementation Plan
 
-Immersive Conversation UI
-	•	Dark theme with atmospheric styling for roleplay immersion
-	•	Messages styled with proper markdown support
-	•	Actions displayed in italics for physical/emotional descriptions
-	•	User message editing with automatic persona-consistent rewriting
-	•	Tone/direction buttons (e.g., “be more dramatic”, “slow down”)
-	•	Typing indicators when character is “thinking”
-	•	Active Character + Active User Persona displayed subtly in UI
+### 1. Add OpenRouter API Key Input to Settings
 
-Message Controls
-	•	Edit previous messages to steer the narrative
-	•	Regenerate responses with persona-aware adjustments
-	•	Mark messages as “canon” to lock them into permanent memory
+Update the Settings page to include an input field for the OpenRouter API key:
+- Add a password input field for entering the API key
+- Store the API key in the `ai_settings` table (add column if needed)
+- Display masked key with option to reveal/update
+- Show connection status indicator
 
-⸻
+**Database Change:**
+```sql
+ALTER TABLE ai_settings ADD COLUMN openrouter_api_key TEXT;
+```
 
-3. Memory & Canon System
+### 2. Update Edge Function to Accept API Key
 
-Persistent Memory Storage
-	•	Separate memory layers:
-	•	Character Memory (what the character knows/remembers)
-	•	Persona Memory (how the character perceives the active user persona)
-	•	Automatic extraction of:
-	•	Key events
-	•	Relationship dynamics
-	•	Emotional shifts tied to specific personas
-	•	Memory browser to view/edit stored memories
-	•	Memory categories: Events, Relationships, Locations, Items, Persona Impressions
+Modify the chat edge function to:
+- Accept the API key from the request body (fallback to env variable)
+- This allows the frontend to pass the user-entered key
 
-Canon Event Log
-	•	Timeline view of confirmed story events
-	•	Events tagged with:
-	•	Involved character(s)
-	•	Active user persona at the time
-	•	User confirmation required before events become permanent
-	•	Ability to retcon (remove) events from canon
-	•	Export story/canon as a document
+### 3. Connect ChatPage to Real AI
 
-⸻
+Update ChatPage to:
+- Fetch AI settings from the database
+- Call the `sendChatMessage` function from `src/lib/ai.ts`
+- Handle errors and display appropriate messages
+- Pass memories from the character's memory store
 
-4. AI Integration
+### 4. Fix Settings Page Sync Bug
 
-Dual Provider Support
-	•	LM Studio integration for local/private roleplay
-	•	OpenRouter integration for cloud models (Claude, GPT-4, etc.)
-	•	Toggle between providers in settings
-	•	Model selection within each provider
+Replace incorrect `useState` with proper `useEffect` to sync local state when settings load.
 
-Adaptive Prompting System
-	•	System prompt composed dynamically from:
-	•	Global roleplay rules
-	•	Active character profile
-	•	Active user persona profile
-	•	Current canon and memory context
-	•	Persona-aware response modulation:
-	•	Tone
-	•	Power dynamics
-	•	Emotional responsiveness
-	•	Assumptions about user intent
+---
 
-Configuration
-	•	Settings panel for API endpoints and keys
-	•	Model-specific parameters (temperature, max tokens)
-	•	System prompt customization per character and per persona
+## Files to Modify
 
-⸻
+| File | Changes |
+|------|---------|
+| `supabase/migrations/` | Add `openrouter_api_key` column to `ai_settings` |
+| `src/types/index.ts` | Add `openrouterApiKey` to `AISettings` type |
+| `src/hooks/useAISettings.ts` | Handle new API key field |
+| `src/pages/SettingsPage.tsx` | Add API key input, fix useEffect bug |
+| `src/pages/ChatPage.tsx` | Connect to real AI via `sendChatMessage` |
+| `supabase/functions/chat/index.ts` | Accept API key from request body |
+| `src/lib/ai.ts` | Pass API key in request |
 
-5. Backend & Storage
+---
 
-Lovable Cloud Integration
-	•	Database for:
-	•	Characters
-	•	User Personas
-	•	Memories (character + persona-linked)
-	•	Canon events
-	•	Secure secrets management for API keys
-	•	Edge functions for AI provider communication
-	•	No account needed – single-user, local-feeling privacy
+## Testing Flow After Implementation
 
-⸻
+1. **Go to Settings** → Enter OpenRouter API key or configure LM Studio endpoint
+2. **Go to Characters** → Click "New Character" → Fill in the form → Create
+3. **Click "Chat"** on the character card
+4. **Send a message** → Character responds via the configured AI provider
+5. **Toggle canon** on messages to test memory system
 
-6. Dark Immersive Design
+---
 
-Visual Atmosphere
-	•	Deep dark theme with subtle gradients
-	•	Accent colors that feel mystical/dramatic
-	•	Smooth animations for message appearance
-	•	Minimal UI chrome to maximize immersion
-	•	Portrait-style character and persona avatars
-	•	Subtle visual cues when switching personas or characters
+## Technical Details
+
+### API Key Storage
+The OpenRouter API key will be stored in the database. While this is simpler for a single-user app, it's transmitted to the edge function which uses it server-side - the key is never exposed to the browser.
+
+### Settings Type Update
+```typescript
+export interface AISettings {
+  provider: 'lmstudio' | 'openrouter';
+  lmstudioEndpoint: string;
+  lmstudioModel: string;
+  openrouterModel: string;
+  openrouterApiKey?: string; // NEW
+  temperature: number;
+  maxTokens: number;
+  systemPromptOverride?: string;
+}
+```
+
+### Edge Function Update
+```typescript
+// Accept API key from request, fallback to env
+const openrouterKey = body.openrouterApiKey || Deno.env.get("OPENROUTER_API_KEY");
+```
+
