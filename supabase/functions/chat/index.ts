@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,6 @@ interface ChatRequest {
   lmstudioEndpoint?: string;
   lmstudioModel?: string;
   openrouterModel?: string;
-  openrouterApiKey?: string;
   temperature?: number;
   maxTokens?: number;
   systemPromptOverride?: string;
@@ -112,6 +112,31 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(token);
+    
+    if (authError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body: ChatRequest = await req.json();
     const systemPrompt = buildSystemPrompt(body);
 
@@ -138,11 +163,11 @@ serve(async (req) => {
         }),
       });
     } else {
-      // OpenRouter - accept API key from request body, fallback to env
-      const openrouterKey = body.openrouterApiKey || Deno.env.get("OPENROUTER_API_KEY");
+      // OpenRouter - use server-side API key only
+      const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
       if (!openrouterKey) {
         return new Response(
-          JSON.stringify({ error: "OpenRouter API key not configured. Please add your API key in Settings." }),
+          JSON.stringify({ error: "OpenRouter API key not configured. Please contact the administrator." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

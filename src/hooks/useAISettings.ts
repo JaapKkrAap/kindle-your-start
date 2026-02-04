@@ -19,7 +19,6 @@ export function useAISettings() {
         lmstudioEndpoint: data.lmstudio_endpoint,
         lmstudioModel: data.lmstudio_model,
         openrouterModel: data.openrouter_model,
-        openrouterApiKey: data.openrouter_api_key ?? undefined,
         temperature: Number(data.temperature),
         maxTokens: data.max_tokens,
         systemPromptOverride: data.system_prompt_override ?? undefined,
@@ -47,7 +46,6 @@ export function useUpdateAISettings() {
       if (data.lmstudioEndpoint !== undefined) updateData.lmstudio_endpoint = data.lmstudioEndpoint;
       if (data.lmstudioModel !== undefined) updateData.lmstudio_model = data.lmstudioModel;
       if (data.openrouterModel !== undefined) updateData.openrouter_model = data.openrouterModel;
-      if (data.openrouterApiKey !== undefined) updateData.openrouter_api_key = data.openrouterApiKey;
       if (data.temperature !== undefined) updateData.temperature = data.temperature;
       if (data.maxTokens !== undefined) updateData.max_tokens = data.maxTokens;
       if (data.systemPromptOverride !== undefined) updateData.system_prompt_override = data.systemPromptOverride;
