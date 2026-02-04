@@ -81,51 +81,52 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
             )}
           </div>
 
-          {/* Actions */}
-          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => onEdit(character)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(character)}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(character)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        {/* Actions - higher z-index to stay above play overlay */}
+        <div className="absolute right-2 top-2 z-20 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40 bg-popover">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(character); }}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate(character); }}>
+                <Copy className="mr-2 h-4 w-4" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onDelete(character); }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-          {/* Play button overlay */}
-          <button
-            onClick={() => onPlay(character)}
-            className="absolute inset-0 flex items-center justify-center bg-primary/0 opacity-0 transition-all group-hover:bg-primary/10 group-hover:opacity-100"
-          >
-            <div className="rounded-full bg-primary p-4 shadow-lg glow-primary">
-              <Play className="h-6 w-6 text-primary-foreground" />
-            </div>
-          </button>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
+        {/* Play button overlay - exclude top area for dropdown */}
+        <button
+          onClick={() => onPlay(character)}
+          className="absolute inset-0 top-12 z-10 flex items-center justify-center bg-primary/0 opacity-0 transition-all group-hover:bg-primary/10 group-hover:opacity-100"
+        >
+          <div className="rounded-full bg-primary p-4 shadow-lg glow-primary">
+            <Play className="h-6 w-6 text-primary-foreground" />
+          </div>
+        </button>
+      </CardContent>
+    </Card>
+  </motion.div>
+);
 }
 
 function formatRelativeTime(date: Date): string {

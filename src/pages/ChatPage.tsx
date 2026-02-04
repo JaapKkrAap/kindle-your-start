@@ -20,7 +20,9 @@ import {
   useAddChatMessage, 
   useCreateChatSession, 
   useToggleCanon,
-  useUpdateSession 
+  useUpdateSession,
+  useUpdateMessage,
+  useDeleteMessagesAfter,
 } from '@/hooks/useChatSessions';
 import { useAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +34,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { AnimatePresence } from 'framer-motion';
 import type { ChatMessage } from '@/types';
 
@@ -59,12 +69,16 @@ export default function ChatPage() {
   const addMessage = useAddChatMessage();
   const toggleCanon = useToggleCanon();
   const updateSession = useUpdateSession();
+  const updateMessage = useUpdateMessage();
+  const deleteMessagesAfter = useDeleteMessagesAfter();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activePersonaId, setActivePersonaId] = useState<string | undefined>();
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
@@ -260,17 +274,91 @@ export default function ChatPage() {
   };
 
   const handleEdit = (id: string) => {
-    toast({
-      title: 'Edit message',
-      description: 'Message editing coming soon!',
-    });
+    const message = messages.find(m => m.id === id);
+    if (message) {
+      setEditingMessageId(id);
+      setEditContent(message.content);
+    }
   };
 
-  const handleRegenerate = (id: string) => {
-    toast({
-      title: 'Regenerate',
-      description: 'Response regeneration coming soon!',
+  const handleSaveEdit = async () => {
+    if (!editingMessageId || !editContent.trim()) return;
+    
+    try {
+      await updateMessage.mutateAsync({ 
+        id: editingMessageId, 
+        content: editContent 
+      });
+      setEditingMessageId(null);
+      setEditContent('');
+      toast({
+        title: 'Message updated',
+        description: 'Your edit has been saved.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update message',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRegenerate = async (id: string) => {
+    if (!sessionId || !character || !aiSettings || isTyping) return;
+    
+    const messageIndex = messages.findIndex(m => m.id === id);
+    if (messageIndex === -1) return;
+    
+    const targetMessage = messages[messageIndex];
+    
+    // Delete this message and everything after it
+    await deleteMessagesAfter.mutateAsync({
+      sessionId,
+      afterTimestamp: targetMessage.createdAt,
     });
+    
+    // Get conversation up to (but not including) the deleted message
+    const previousMessages = messages.slice(0, messageIndex);
+    
+    // Build chat history
+    const chatHistory = previousMessages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+    
+    setIsTyping(true);
+    
+    try {
+      const response = await sendChatMessage({
+        messages: chatHistory,
+        character,
+        persona: activePersona,
+        memories: memories?.map(m => m.content) ?? [],
+        canonEvents: canonEvents?.map(e => ({
+          title: e.title,
+          description: e.description,
+        })) ?? [],
+        settings: aiSettings,
+      });
+      
+      await addMessage.mutateAsync({
+        sessionId,
+        characterId: character.id,
+        personaId: activePersonaId,
+        role: 'character',
+        content: response.content,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate';
+      toast({
+        title: 'Regeneration failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   if (loadingCharacter || loadingSessions) {
@@ -395,6 +483,29 @@ export default function ChatPage() {
         placeholder={`Message ${character.name}...`}
         inputRef={chatInputRef}
       />
+
+      {/* Edit Message Dialog */}
+      <Dialog open={!!editingMessageId} onOpenChange={() => setEditingMessageId(null)}>
+        <DialogContent className="max-w-2xl border-border bg-background">
+          <DialogHeader>
+            <DialogTitle>Edit Message</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="min-h-[150px] bg-muted/50"
+            placeholder="Edit your message..."
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingMessageId(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateMessage.isPending || !editContent.trim()}>
+              {updateMessage.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
