@@ -10,6 +10,16 @@ import {
 import type { UserPersona } from '@/types';
 import { motion } from 'framer-motion';
 
+// Generate consistent color from name
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 45%)`;
+}
+
 interface PersonaCardProps {
   persona: UserPersona;
   isActive?: boolean;
@@ -40,7 +50,10 @@ export function PersonaCard({ persona, isActive, onSelect, onEdit, onDelete }: P
       >
         <CardContent className="flex items-center gap-4 p-4">
           {/* Avatar */}
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-accent/30 to-primary/20">
+          <div 
+            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg"
+            style={{ backgroundColor: getAvatarColor(persona.name) }}
+          >
             {persona.avatarUrl ? (
               <img
                 src={persona.avatarUrl}
@@ -49,7 +62,7 @@ export function PersonaCard({ persona, isActive, onSelect, onEdit, onDelete }: P
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <span className="font-serif text-lg text-foreground/70">
+                <span className="font-serif text-lg text-white">
                   {initials}
                 </span>
               </div>
@@ -82,7 +95,7 @@ export function PersonaCard({ persona, isActive, onSelect, onEdit, onDelete }: P
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="bg-popover">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(persona); }}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit

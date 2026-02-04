@@ -8,6 +8,7 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading?: boolean;
   placeholder?: string;
+  inputRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
 const TONE_BUTTONS = [
@@ -17,10 +18,11 @@ const TONE_BUTTONS = [
   { label: 'Get intense', value: '[Tone: intense]' },
 ];
 
-export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
+export function ChatInput({ onSend, isLoading, placeholder, inputRef }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showToneButtons, setShowToneButtons] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = inputRef || internalRef;
 
   // Auto-resize textarea
   useEffect(() => {
@@ -28,7 +30,7 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
-  }, [message]);
+  }, [message, textareaRef]);
 
   const handleSend = () => {
     if (message.trim() && !isLoading) {
@@ -39,9 +41,14 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Enter to send, Shift+Enter for new line
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+    // Escape to close tone buttons
+    if (e.key === 'Escape' && showToneButtons) {
+      setShowToneButtons(false);
     }
   };
 
@@ -112,6 +119,12 @@ export function ChatInput({ onSend, isLoading, placeholder }: ChatInputProps) {
             <Send className="h-5 w-5" />
           )}
         </Button>
+      </div>
+
+      {/* Keyboard hints */}
+      <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-muted-foreground/50">
+        <span><kbd className="px-1 py-0.5 bg-muted/50 rounded text-[9px]">Enter</kbd> to send</span>
+        <span><kbd className="px-1 py-0.5 bg-muted/50 rounded text-[9px]">Shift+Enter</kbd> new line</span>
       </div>
     </div>
   );

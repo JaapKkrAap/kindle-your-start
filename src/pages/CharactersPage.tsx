@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CharacterCard } from '@/components/characters/CharacterCard';
 import { CharacterFormDialog } from '@/components/characters/CharacterFormDialog';
 import { useCharacters, useCreateCharacter, useUpdateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
@@ -119,7 +120,9 @@ export default function CharactersPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted/50" />
+            <div key={i} className="glass-card overflow-hidden rounded-xl">
+              <Skeleton className="aspect-[3/4]" />
+            </div>
           ))}
         </div>
       ) : characters && characters.length > 0 ? (
@@ -138,7 +141,7 @@ export default function CharactersPage() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 rounded-full bg-muted p-6">
-            <Plus className="h-8 w-8 text-muted-foreground" />
+            <Users className="h-8 w-8 text-muted-foreground" />
           </div>
           <h2 className="font-display text-xl font-semibold">No characters yet</h2>
           <p className="mt-2 max-w-sm text-muted-foreground">
