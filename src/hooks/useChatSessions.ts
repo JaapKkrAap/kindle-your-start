@@ -238,7 +238,29 @@ export function useDeleteSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+    },
+  });
+}
+
+export function useDeleteMessagesAfter() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ sessionId, afterTimestamp }: { 
+      sessionId: string; 
+      afterTimestamp: Date 
+    }): Promise<void> => {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', sessionId)
+        .gte('created_at', afterTimestamp.toISOString());
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, { sessionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
     },
   });
 }
