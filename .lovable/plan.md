@@ -1,129 +1,140 @@
 
 
-# Add Narrative Directives to ChatPage
+# Persona Persistence in Chat Sessions
 
 ## Overview
 
-This plan integrates the `useNarrativeDirectives` hook into ChatPage.tsx to pass story directives to all AI chat calls.
+This plan implements two improvements to persona handling in chat sessions:
 
----
+1. **Initialize activePersonaId from session data** - When loading an existing session, the persona selector should reflect the persona that was previously used
+2. **Persist persona changes to database** - When the user switches persona mid-session, update the session record so it persists across navigation
 
-## Changes Required
+## Current Behavior
 
-### File: `src/pages/ChatPage.tsx`
+- `activePersonaId` is initialized as `undefined` (line 78 in ChatPage.tsx)
+- When loading an existing session, the persona is not restored from the session's `persona_id` field
+- When clicking on a persona in the dropdown (line 568), only the local state updates - nothing is saved to the database
 
-**1. Add Import (line 16)**
+## Implementation Steps
 
-Add the import for the narrative directives hook:
+### Step 1: Extend useUpdateSession hook
 
-```typescript
-import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
-```
+The current `useUpdateSession` hook (lines 200-215 in useChatSessions.ts) only supports updating the `title` field. We need to extend it to also support updating `persona_id`.
 
-**2. Initialize Hook (around line 89, after useMemoryExtraction)**
+**File: `src/hooks/useChatSessions.ts`**
 
-Add the hook call inside the component:
-
-```typescript
-const { getDirectivesForApi } = useNarrativeDirectives(characterId);
-```
-
-**3. Update sendChatMessage Call in handleSend (line 246-256)**
-
-Add `narrativeDirectives` to the sendChatMessage call:
+Modify the mutation function to accept an optional `personaId` parameter:
 
 ```typescript
-const response = await sendChatMessage({
-  messages: chatHistory,
-  character,
-  persona: activePersona,
-  memories: memories?.map(m => m.content) ?? [],
-  canonEvents: canonEvents?.map(e => ({
-    title: e.title,
-    description: e.description,
-  })) ?? [],
-  narrativeDirectives: getDirectivesForApi(),
-  settings: aiSettings,
-});
+export function useUpdateSession() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, title, personaId }: { 
+      id: string; 
+      title?: string; 
+      personaId?: string | null;
+    }): Promise<void> => {
+      const updateData: Record<string, unknown> = {};
+      if (title !== undefined) updateData.title = title;
+      if (personaId !== undefined) updateData.persona_id = personaId;
+      
+      if (Object.keys(updateData).length === 0) return;
+      
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update(updateData)
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+    },
+  });
+}
 ```
 
-**4. Update sendChatMessage Call in handleRegenerate (line 383-393)**
+### Step 2: Initialize activePersonaId from session data
 
-Add `narrativeDirectives` to the regeneration call:
+When a session is selected (either on initial load or when switching sessions), set `activePersonaId` based on the session's `personaId` field.
+
+**File: `src/pages/ChatPage.tsx`**
+
+Add an effect that watches the selected session and initializes the persona:
 
 ```typescript
-const response = await sendChatMessage({
-  messages: chatHistory,
-  character,
-  persona: activePersona,
-  memories: memories?.map(m => m.content) ?? [],
-  canonEvents: canonEvents?.map(e => ({
-    title: e.title,
-    description: e.description,
-  })) ?? [],
-  narrativeDirectives: getDirectivesForApi(),
-  settings: aiSettings,
-});
+// Initialize persona from session when session loads/changes
+useEffect(() => {
+  if (!sessions || !sessionId) return;
+  
+  const currentSession = sessions.find(s => s.id === sessionId);
+  if (currentSession) {
+    setActivePersonaId(currentSession.personaId);
+  }
+}, [sessionId, sessions]);
 ```
 
-**5. Update sendChatMessage Call in handleGenerateUserMessage (line 425-443)**
+This should be placed after the existing session selection effect (around line 153).
 
-Add `narrativeDirectives` to the user message generation call:
+### Step 3: Persist persona changes to database
+
+When the user selects a different persona from the dropdown, update the session record in the database.
+
+**File: `src/pages/ChatPage.tsx`**
+
+Create a handler function for persona changes:
 
 ```typescript
-const response = await sendChatMessage({
-  messages: [...chatHistory, { role: 'system', content: '...' }],
-  character,
-  persona: activePersona,
-  memories: memories?.map(m => m.content) ?? [],
-  canonEvents: canonEvents?.map(e => ({
-    title: e.title,
-    description: e.description,
-  })) ?? [],
-  narrativeDirectives: getDirectivesForApi(),
-  settings: aiSettings,
-});
+const handlePersonaChange = useCallback((personaId: string | undefined) => {
+  setActivePersonaId(personaId);
+  
+  // Persist to database if we have an active session
+  if (sessionId) {
+    updateSession.mutate({ 
+      id: sessionId, 
+      personaId: personaId ?? null 
+    });
+  }
+}, [sessionId, updateSession]);
 ```
 
-**6. Update sendChatMessage Call in handleRegenerateUserMessage (line 462-482)**
-
-Add `narrativeDirectives` to the user message regeneration call:
+Then update the dropdown menu items to use this handler instead of directly calling `setActivePersonaId`:
 
 ```typescript
-const response = await sendChatMessage({
-  messages: [...chatHistory, { role: 'system', content: '...' }],
-  character,
-  persona: activePersona,
-  memories: memories?.map(m => m.content) ?? [],
-  canonEvents: canonEvents?.map(e => ({
-    title: e.title,
-    description: e.description,
-  })) ?? [],
-  narrativeDirectives: getDirectivesForApi(),
-  settings: aiSettings,
-});
+<DropdownMenuItem onClick={() => handlePersonaChange(undefined)}>
+  <User className="mr-2 h-4 w-4 text-muted-foreground" />
+  No Persona (You)
+</DropdownMenuItem>
+{personas?.map(persona => (
+  <DropdownMenuItem
+    key={persona.id}
+    onClick={() => handlePersonaChange(persona.id)}
+  >
+    <User className="mr-2 h-4 w-4" />
+    {persona.name}
+  </DropdownMenuItem>
+))}
 ```
 
----
+## Technical Details
 
-## Summary of Changes
+### Files to Modify
 
-| Location | Change |
-|----------|--------|
-| Line 16 | Add import for `useNarrativeDirectives` |
-| Line ~89 | Initialize `getDirectivesForApi` from hook |
-| Line ~246 | Add `narrativeDirectives` to handleSend |
-| Line ~383 | Add `narrativeDirectives` to handleRegenerate |
-| Line ~425 | Add `narrativeDirectives` to handleGenerateUserMessage |
-| Line ~462 | Add `narrativeDirectives` to handleRegenerateUserMessage |
+| File | Changes |
+|------|---------|
+| `src/hooks/useChatSessions.ts` | Extend `useUpdateSession` to accept optional `personaId` parameter |
+| `src/pages/ChatPage.tsx` | Add persona initialization effect and persona change handler |
 
----
+### Database Considerations
 
-## How It Works
+- The `chat_sessions` table already has a `persona_id` column (nullable UUID)
+- The `useChatSessions` hook already returns `personaId` for each session
+- No database migrations are required
 
-1. The hook manages an in-memory list of narrative directives (goals, reveals, escalations, resolutions)
-2. `getDirectivesForApi()` returns the directives in the format expected by the chat edge function
-3. All four `sendChatMessage` calls will now include any active directives
-4. The chat edge function injects these as hidden `<narrative_objectives>` in the system prompt
-5. Characters will naturally weave these story objectives into their responses
+### Edge Cases Handled
+
+1. **Session with no persona** - Uses `null` in database, `undefined` in TypeScript
+2. **Switching sessions** - Persona resets to the new session's persona
+3. **New session creation** - Already passes `personaId` to the create mutation (line 122)
 
