@@ -39,6 +39,18 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    // Get user from auth
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const userId = user.id;
+
     const body: ExtractMemoriesRequest = await req.json();
     const { sessionId, characterId, personaId, afterMessageId } = body;
 
@@ -172,6 +184,7 @@ If nothing worth remembering, respond with empty array: []`;
       const { error: insertError } = await supabaseClient
         .from('memories')
         .insert(newMemories.map(m => ({
+          user_id: userId,
           character_id: characterId,
           persona_id: personaId ?? null,
           category: m.category,
