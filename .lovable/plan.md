@@ -1,140 +1,96 @@
 
 
-# Persona Persistence in Chat Sessions
+# Add Active Persona Visual Indicator
 
 ## Overview
 
-This plan implements two improvements to persona handling in chat sessions:
+Add a visual indicator next to the persona button in the chat header that displays the currently active persona name, making it immediately clear which persona is being used without having to open the dropdown.
 
-1. **Initialize activePersonaId from session data** - When loading an existing session, the persona selector should reflect the persona that was previously used
-2. **Persist persona changes to database** - When the user switches persona mid-session, update the session record so it persists across navigation
+## Current State
 
-## Current Behavior
+The persona selector (lines 577-598 in ChatPage.tsx) is currently just an icon button with a User icon:
 
-- `activePersonaId` is initialized as `undefined` (line 78 in ChatPage.tsx)
-- When loading an existing session, the persona is not restored from the session's `persona_id` field
-- When clicking on a persona in the dropdown (line 568), only the local state updates - nothing is saved to the database
-
-## Implementation Steps
-
-### Step 1: Extend useUpdateSession hook
-
-The current `useUpdateSession` hook (lines 200-215 in useChatSessions.ts) only supports updating the `title` field. We need to extend it to also support updating `persona_id`.
-
-**File: `src/hooks/useChatSessions.ts`**
-
-Modify the mutation function to accept an optional `personaId` parameter:
-
-```typescript
-export function useUpdateSession() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ id, title, personaId }: { 
-      id: string; 
-      title?: string; 
-      personaId?: string | null;
-    }): Promise<void> => {
-      const updateData: Record<string, unknown> = {};
-      if (title !== undefined) updateData.title = title;
-      if (personaId !== undefined) updateData.persona_id = personaId;
-      
-      if (Object.keys(updateData).length === 0) return;
-      
-      const { error } = await supabase
-        .from('chat_sessions')
-        .update(updateData)
-        .eq('id', id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
-    },
-  });
-}
+```tsx
+<Button variant="ghost" size="icon" className="h-8 w-8">
+  <User className="h-4 w-4" />
+</Button>
 ```
 
-### Step 2: Initialize activePersonaId from session data
+There's no indication of which persona is currently active until the user opens the dropdown.
 
-When a session is selected (either on initial load or when switching sessions), set `activePersonaId` based on the session's `personaId` field.
+## Proposed Design
 
-**File: `src/pages/ChatPage.tsx`**
+Replace the icon-only button with a button that includes both an icon and the persona name displayed in a badge-style format:
 
-Add an effect that watches the selected session and initializes the persona:
-
-```typescript
-// Initialize persona from session when session loads/changes
-useEffect(() => {
-  if (!sessions || !sessionId) return;
-  
-  const currentSession = sessions.find(s => s.id === sessionId);
-  if (currentSession) {
-    setActivePersonaId(currentSession.personaId);
-  }
-}, [sessionId, sessions]);
+```text
+┌─────────────────────────────────────────────────────────┐
+│  ←  │        [Avatar] Character Name        │ 📋  👤 You │
+└─────────────────────────────────────────────────────────┘
+                                               ↑
+                                         Persona indicator
 ```
 
-This should be placed after the existing session selection effect (around line 153).
-
-### Step 3: Persist persona changes to database
-
-When the user selects a different persona from the dropdown, update the session record in the database.
-
-**File: `src/pages/ChatPage.tsx`**
-
-Create a handler function for persona changes:
-
-```typescript
-const handlePersonaChange = useCallback((personaId: string | undefined) => {
-  setActivePersonaId(personaId);
-  
-  // Persist to database if we have an active session
-  if (sessionId) {
-    updateSession.mutate({ 
-      id: sessionId, 
-      personaId: personaId ?? null 
-    });
-  }
-}, [sessionId, updateSession]);
+When a persona is selected:
+```text
+│ 📋  👤 Knight │
 ```
 
-Then update the dropdown menu items to use this handler instead of directly calling `setActivePersonaId`:
+When no persona (default):
+```text
+│ 📋  👤 You │
+```
+
+## Implementation
+
+### File: `src/pages/ChatPage.tsx`
+
+**Step 1: Import Badge component**
+
+Add the Badge import at the top of the file:
 
 ```typescript
-<DropdownMenuItem onClick={() => handlePersonaChange(undefined)}>
-  <User className="mr-2 h-4 w-4 text-muted-foreground" />
-  No Persona (You)
-</DropdownMenuItem>
-{personas?.map(persona => (
-  <DropdownMenuItem
-    key={persona.id}
-    onClick={() => handlePersonaChange(persona.id)}
-  >
-    <User className="mr-2 h-4 w-4" />
-    {persona.name}
-  </DropdownMenuItem>
-))}
+import { Badge } from '@/components/ui/badge';
 ```
+
+**Step 2: Replace icon button with labeled button**
+
+Change the persona dropdown trigger from a simple icon button to a button that shows the current persona name:
+
+```tsx
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
+      <User className="h-4 w-4" />
+      <Badge variant="secondary" className="text-xs font-normal">
+        {activePersona?.name ?? 'You'}
+      </Badge>
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className="bg-popover">
+    {/* ... existing dropdown items ... */}
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+## Visual Result
+
+| State | Display |
+|-------|---------|
+| No persona selected | `👤 You` badge |
+| Persona "Knight" selected | `👤 Knight` badge |
+| Persona "Shadow" selected | `👤 Shadow` badge |
 
 ## Technical Details
 
-### Files to Modify
+- Uses the existing `Badge` component with `secondary` variant for subtle styling
+- The `activePersona` variable is already available in the component (line 91)
+- Badge styling matches the app's gaming/fantasy aesthetic with muted colors
+- Button size changed from `icon` to `sm` to accommodate the text
+- Gap and padding adjusted for proper spacing
 
-| File | Changes |
-|------|---------|
-| `src/hooks/useChatSessions.ts` | Extend `useUpdateSession` to accept optional `personaId` parameter |
-| `src/pages/ChatPage.tsx` | Add persona initialization effect and persona change handler |
+## Files Modified
 
-### Database Considerations
-
-- The `chat_sessions` table already has a `persona_id` column (nullable UUID)
-- The `useChatSessions` hook already returns `personaId` for each session
-- No database migrations are required
-
-### Edge Cases Handled
-
-1. **Session with no persona** - Uses `null` in database, `undefined` in TypeScript
-2. **Switching sessions** - Persona resets to the new session's persona
-3. **New session creation** - Already passes `personaId` to the create mutation (line 122)
+| File | Change |
+|------|--------|
+| `src/pages/ChatPage.tsx` | Add Badge import and update persona button to show active persona name |
 
