@@ -56,18 +56,33 @@ export interface Memory {
   personaId?: string;
   category: MemoryCategory;
   content: string;
-  importance: number; // 1-10 scale
+  importance: number;
   createdAt: Date;
   sourceMessageId?: string;
 }
 
 export type MemoryCategory = 
-  | 'event'
+  | 'fact'
+  | 'preference'
   | 'relationship'
+  | 'event'
+  | 'emotion'
+  | 'goal'
   | 'location'
   | 'item'
   | 'persona_impression'
   | 'emotional_shift';
+
+export interface NarrativeDirective {
+  id: string;
+  characterId: string;
+  type: 'goal' | 'reveal' | 'escalate' | 'resolve';
+  description: string;
+  triggerCondition?: string;
+  priority: number;
+  isActive: boolean;
+  createdAt: Date;
+}
 
 export interface CanonEvent {
   id: string;
@@ -95,7 +110,6 @@ export interface AppSettings {
   ai: AISettings;
 }
 
-// Form types for creation/editing
 export interface CharacterFormData {
   name: string;
   avatarUrl?: string;
@@ -116,7 +130,6 @@ export interface UserPersonaFormData {
   defaultTone: string;
 }
 
-// AI Request/Response types
 export interface ChatCompletionRequest {
   messages: { role: string; content: string }[];
   model: string;

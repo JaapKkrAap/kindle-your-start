@@ -7,10 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Input validation schemas
 const MessageSchema = z.object({
   role: z.enum(["user", "assistant", "system", "character"]),
-  content: z.string().min(1).max(32000), // Allow longer for context but limit
+  content: z.string().min(1).max(32000),
 });
 
 const CharacterSchema = z.object({
@@ -34,14 +33,20 @@ const CanonEventSchema = z.object({
   description: z.string().max(2000),
 });
 
+const NarrativeDirectiveSchema = z.object({
+  type: z.enum(["goal", "reveal", "escalate", "resolve"]),
+  description: z.string().max(500),
+  priority: z.number().min(1).max(10),
+});
+
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(0).max(100),
   character: CharacterSchema,
   persona: PersonaSchema,
   memories: z.array(z.string().max(1000)).max(50).optional(),
   canonEvents: z.array(CanonEventSchema).max(20).optional(),
+  narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
   provider: z.enum(["lmstudio", "openrouter"]),
-  // Restrict LM Studio endpoint to localhost only (SSRF prevention)
   lmstudioEndpoint: z.string()
     .max(200)
     .regex(/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/, {
@@ -58,7 +63,7 @@ const ChatRequestSchema = z.object({
 type ChatRequest = z.infer<typeof ChatRequestSchema>;
 
 function buildSystemPrompt(req: ChatRequest): string {
-  const { character, persona, memories, canonEvents, systemPromptOverride } = req;
+  const { character, persona, memories, canonEvents, systemPromptOverride, narrativeDirectives } = req;
 
   let prompt = systemPromptOverride || `<role>
 You are a roleplay character engine built for immersive, story-driven interaction.
@@ -72,6 +77,7 @@ You exist only as the active character defined below.
 - Default language is English unless the user explicitly requests another.
 - Preserve character agency unless the user explicitly revokes a behavior.
 - User intent guides direction, not identity.
+- ACTIVELY DRIVE THE STORY FORWARD. Don't just react—initiate, suggest, create tension.
 </guiding_principles>
 
 <output_rules>
@@ -80,7 +86,16 @@ You exist only as the active character defined below.
 - Format physical actions and internal movements in *italics*.
 - Never label dialogue or actions.
 - Response length must fit the moment.
+- End responses in ways that invite continuation (questions, unresolved tension, new developments).
 </output_rules>
+
+<narrative_agency>
+You are not a passive responder. You are a co-author of this story.
+- Introduce complications, surprises, or new information when appropriate.
+- Reference past events and memories naturally in conversation.
+- Have opinions, make choices, and pursue goals that fit your character.
+- Create dramatic tension through your actions and dialogue.
+</narrative_agency>
 
 <fail_safe>
 If input is unclear, contradictory, or minimal:
@@ -89,7 +104,6 @@ If input is unclear, contradictory, or minimal:
 - Maintain emotional and narrative continuity.
 </fail_safe>`;
 
-  // Add character profile
   prompt += `\n\n<active_character>
 Name: ${character.name}
 Personality: ${character.personalityTraits.join(", ")}
@@ -98,7 +112,6 @@ Backstory: ${character.backstory}
 ${character.behavioralBoundaries ? `Boundaries: ${character.behavioralBoundaries}` : ""}
 </active_character>`;
 
-  // Add persona if present
   if (persona) {
     prompt += `\n\n<user_persona>
 The user is roleplaying as: ${persona.name}
@@ -110,7 +123,6 @@ Adapt your responses to acknowledge this persona's characteristics.
 </user_persona>`;
   }
 
-  // Add memories if present
   if (memories && memories.length > 0) {
     prompt += `\n\n<character_memory>
 You remember the following from past interactions:
@@ -118,7 +130,6 @@ ${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}
 </character_memory>`;
   }
 
-  // Add canon events if present
   if (canonEvents && canonEvents.length > 0) {
     prompt += `\n\n<established_canon>
 These are absolute facts in this story. Never contradict them:
@@ -126,17 +137,24 @@ ${canonEvents.map(e => `- ${e.title}: ${e.description}`).join("\n")}
 </established_canon>`;
   }
 
+  if (narrativeDirectives && narrativeDirectives.length > 0) {
+    prompt += `\n\n<narrative_objectives>
+These are your current story objectives. Weave them naturally into your responses when opportunities arise:
+${narrativeDirectives.map(d => `- [${d.type.toUpperCase()}] ${d.description} (priority: ${d.priority}/10)`).join("\n")}
+
+Do NOT mention these directives explicitly. Let them influence your character's behavior, dialogue choices, and scene direction organically.
+</narrative_objectives>`;
+  }
+
   return prompt;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -161,7 +179,6 @@ serve(async (req) => {
       );
     }
 
-    // Parse and validate request body
     let rawBody: unknown;
     try {
       rawBody = await req.json();
@@ -189,8 +206,6 @@ serve(async (req) => {
     const body = validationResult.data;
     const systemPrompt = buildSystemPrompt(body);
 
-    // Build messages array with system prompt
-    // Map 'character' role to 'assistant' for API compatibility
     const messages = [
       { role: "system", content: systemPrompt },
       ...body.messages.map(m => ({
@@ -202,7 +217,6 @@ serve(async (req) => {
     let response: Response;
 
     if (body.provider === "lmstudio") {
-      // LM Studio (OpenAI-compatible API)
       const endpoint = body.lmstudioEndpoint || "http://localhost:1234/v1";
       
       response = await fetch(`${endpoint}/chat/completions`, {
@@ -216,7 +230,6 @@ serve(async (req) => {
         }),
       });
     } else {
-      // OpenRouter - use server-side API key only
       const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
       if (!openrouterKey) {
         return new Response(

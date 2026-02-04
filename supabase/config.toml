@@ -1,1 +1,4 @@
 project_id = "prwdpavkyjyjyjyewxyy"
+
+[functions.extract-memories]
+verify_jwt = false
