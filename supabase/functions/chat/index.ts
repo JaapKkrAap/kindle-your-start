@@ -26,6 +26,7 @@ interface ChatRequest {
   lmstudioEndpoint?: string;
   lmstudioModel?: string;
   openrouterModel?: string;
+  openrouterApiKey?: string;
   temperature?: number;
   maxTokens?: number;
   systemPromptOverride?: string;
@@ -128,11 +129,11 @@ serve(async (req) => {
         }),
       });
     } else {
-      // OpenRouter
-      const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+      // OpenRouter - accept API key from request body, fallback to env
+      const openrouterKey = body.openrouterApiKey || Deno.env.get("OPENROUTER_API_KEY");
       if (!openrouterKey) {
         return new Response(
-          JSON.stringify({ error: "OpenRouter API key not configured" }),
+          JSON.stringify({ error: "OpenRouter API key not configured. Please add your API key in Settings." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

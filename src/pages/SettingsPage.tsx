@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/use-toast';
-import { Server, Cloud, Save } from 'lucide-react';
+import { Server, Cloud, Save, Eye, EyeOff, Key } from 'lucide-react';
 
 const OPENROUTER_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -32,38 +32,42 @@ export default function SettingsPage() {
   const { data: settings, isLoading } = useAISettings();
   const updateSettings = useUpdateAISettings();
 
+  const [showApiKey, setShowApiKey] = useState(false);
   const [localSettings, setLocalSettings] = useState({
-    provider: settings?.provider ?? 'lmstudio',
-    lmstudioEndpoint: settings?.lmstudioEndpoint ?? 'http://localhost:1234/v1',
-    lmstudioModel: settings?.lmstudioModel ?? 'default',
-    openrouterModel: settings?.openrouterModel ?? 'anthropic/claude-3.5-sonnet',
-    temperature: settings?.temperature ?? 0.8,
-    maxTokens: settings?.maxTokens ?? 2048,
-    systemPromptOverride: settings?.systemPromptOverride ?? '',
+    provider: 'lmstudio' as 'lmstudio' | 'openrouter',
+    lmstudioEndpoint: 'http://localhost:1234/v1',
+    lmstudioModel: 'default',
+    openrouterModel: 'anthropic/claude-3.5-sonnet',
+    openrouterApiKey: '',
+    temperature: 0.8,
+    maxTokens: 2048,
+    systemPromptOverride: '',
   });
 
-  // Update local state when settings load
-  useState(() => {
+  // Sync local state when settings load
+  useEffect(() => {
     if (settings) {
       setLocalSettings({
         provider: settings.provider,
         lmstudioEndpoint: settings.lmstudioEndpoint,
         lmstudioModel: settings.lmstudioModel,
         openrouterModel: settings.openrouterModel,
+        openrouterApiKey: settings.openrouterApiKey ?? '',
         temperature: settings.temperature,
         maxTokens: settings.maxTokens,
         systemPromptOverride: settings.systemPromptOverride ?? '',
       });
     }
-  });
+  }, [settings]);
 
   const handleSave = async () => {
     try {
       await updateSettings.mutateAsync({
-        provider: localSettings.provider as 'lmstudio' | 'openrouter',
+        provider: localSettings.provider,
         lmstudioEndpoint: localSettings.lmstudioEndpoint,
         lmstudioModel: localSettings.lmstudioModel,
         openrouterModel: localSettings.openrouterModel,
+        openrouterApiKey: localSettings.openrouterApiKey || undefined,
         temperature: localSettings.temperature,
         maxTokens: localSettings.maxTokens,
         systemPromptOverride: localSettings.systemPromptOverride || undefined,
@@ -88,6 +92,8 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const hasApiKey = Boolean(localSettings.openrouterApiKey);
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -182,6 +188,50 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 pt-4 border-t border-border/50">
+                    {/* API Key Input */}
+                    <div className="space-y-2">
+                      <Label htmlFor="apikey" className="flex items-center gap-2">
+                        <Key className="h-4 w-4" />
+                        OpenRouter API Key
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="apikey"
+                          type={showApiKey ? 'text' : 'password'}
+                          value={localSettings.openrouterApiKey}
+                          onChange={e => setLocalSettings(s => ({ ...s, openrouterApiKey: e.target.value }))}
+                          placeholder="sk-or-v1-..."
+                          className="bg-muted/50 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Get your API key from{' '}
+                        <a 
+                          href="https://openrouter.ai/keys" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          openrouter.ai/keys
+                        </a>
+                      </p>
+                      {hasApiKey && (
+                        <div className="flex items-center gap-2 text-xs text-primary">
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                          API key configured
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-2">
                       <Label>OpenRouter Model</Label>
                       <Select
@@ -200,9 +250,6 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Note: OpenRouter API key must be configured in the project secrets
-                    </p>
                   </div>
                 )}
               </CardContent>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, User } from 'lucide-react';
+import { ArrowLeft, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,9 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { useCharacter } from '@/hooks/useCharacters';
 import { usePersonas } from '@/hooks/usePersonas';
 import { useChatMessages, useAddChatMessage, useCreateChatSession, useToggleCanon } from '@/hooks/useChatSessions';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/use-toast';
+import { sendChatMessage } from '@/lib/ai';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +29,7 @@ export default function ChatPage() {
   
   const { data: character, isLoading: loadingCharacter } = useCharacter(characterId);
   const { data: personas } = usePersonas();
+  const { data: aiSettings } = useAISettings();
   const createSession = useCreateChatSession();
   const addMessage = useAddChatMessage();
   const toggleCanon = useToggleCanon();
@@ -73,7 +76,7 @@ export default function ChatPage() {
   }, [messages, isTyping]);
 
   const handleSend = async (content: string) => {
-    if (!sessionId || !character) return;
+    if (!sessionId || !character || !aiSettings) return;
 
     // Add user message
     await addMessage.mutateAsync({
@@ -84,18 +87,41 @@ export default function ChatPage() {
       content,
     });
 
-    // Simulate AI response (placeholder until AI integration)
+    // Prepare messages for AI
+    const chatHistory = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+    chatHistory.push({ role: 'user', content });
+
     setIsTyping(true);
-    setTimeout(async () => {
+
+    try {
+      const response = await sendChatMessage({
+        messages: chatHistory,
+        character,
+        persona: activePersona,
+        memories: [], // TODO: fetch memories for this character
+        settings: aiSettings,
+      });
+
       await addMessage.mutateAsync({
         sessionId,
         characterId: character.id,
         personaId: activePersonaId,
         role: 'character',
-        content: `*${character.name} considers your words carefully before responding.*\n\nThis is a placeholder response. AI integration will be configured in settings.`,
+        content: response.content,
       });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get AI response';
+      toast({
+        title: 'AI Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleToggleCanon = (id: string, isCanon: boolean) => {
