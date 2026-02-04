@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CharacterCard } from '@/components/characters/CharacterCard';
 import { CharacterFormDialog } from '@/components/characters/CharacterFormDialog';
-import { useCharacters, useCreateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
+import { useCharacters, useCreateCharacter, useUpdateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
 import type { Character, CharacterFormData } from '@/types';
 import {
@@ -23,6 +23,7 @@ export default function CharactersPage() {
   const { toast } = useToast();
   const { data: characters, isLoading } = useCharacters();
   const createCharacter = useCreateCharacter();
+  const updateCharacter = useUpdateCharacter();
   const deleteCharacter = useDeleteCharacter();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -164,10 +165,23 @@ export default function CharactersPage() {
           open={!!editingCharacter}
           onOpenChange={() => setEditingCharacter(null)}
           onSubmit={async (data) => {
-            // TODO: implement update
-            setEditingCharacter(null);
+            try {
+              await updateCharacter.mutateAsync({ id: editingCharacter.id, data });
+              setEditingCharacter(null);
+              toast({
+                title: 'Character updated',
+                description: `${data.name} has been updated`,
+              });
+            } catch (error) {
+              toast({
+                title: 'Error',
+                description: 'Failed to update character',
+                variant: 'destructive',
+              });
+            }
           }}
           initialData={editingCharacter}
+          isLoading={updateCharacter.isPending}
         />
       )}
 

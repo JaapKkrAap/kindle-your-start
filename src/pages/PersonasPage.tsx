@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PersonaCard } from '@/components/personas/PersonaCard';
 import { PersonaFormDialog } from '@/components/personas/PersonaFormDialog';
-import { usePersonas, useCreatePersona, useDeletePersona } from '@/hooks/usePersonas';
+import { usePersonas, useCreatePersona, useUpdatePersona, useDeletePersona } from '@/hooks/usePersonas';
 import { useToast } from '@/hooks/use-toast';
 import type { UserPersona, UserPersonaFormData } from '@/types';
 import {
@@ -21,6 +21,7 @@ export default function PersonasPage() {
   const { toast } = useToast();
   const { data: personas, isLoading } = usePersonas();
   const createPersona = useCreatePersona();
+  const updatePersona = useUpdatePersona();
   const deletePersona = useDeletePersona();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -158,10 +159,23 @@ export default function PersonasPage() {
           open={!!editingPersona}
           onOpenChange={() => setEditingPersona(null)}
           onSubmit={async (data) => {
-            // TODO: implement update
-            setEditingPersona(null);
+            try {
+              await updatePersona.mutateAsync({ id: editingPersona.id, data });
+              setEditingPersona(null);
+              toast({
+                title: 'Persona updated',
+                description: `${data.name} has been updated`,
+              });
+            } catch (error) {
+              toast({
+                title: 'Error',
+                description: 'Failed to update persona',
+                variant: 'destructive',
+              });
+            }
           }}
           initialData={editingPersona}
+          isLoading={updatePersona.isPending}
         />
       )}
 
