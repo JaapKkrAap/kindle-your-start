@@ -1,10 +1,10 @@
 
 
-# Add Auto Memory Extraction to ChatPage
+# Add Narrative Directives to ChatPage
 
 ## Overview
 
-This plan integrates the `useMemoryExtraction` hook into ChatPage.tsx to automatically extract memories every 6 messages after an AI response.
+This plan integrates the `useNarrativeDirectives` hook into ChatPage.tsx to pass story directives to all AI chat calls.
 
 ---
 
@@ -12,91 +12,96 @@ This plan integrates the `useMemoryExtraction` hook into ChatPage.tsx to automat
 
 ### File: `src/pages/ChatPage.tsx`
 
-**1. Add Import**
+**1. Add Import (line 16)**
 
-Add the import for the memory extraction hook alongside other hook imports (around line 14):
+Add the import for the narrative directives hook:
 
 ```typescript
-import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
+import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
 ```
 
-**2. Initialize Hook**
+**2. Initialize Hook (around line 89, after useMemoryExtraction)**
 
-Add the hook call inside the component (around line 87, after other hook calls):
+Add the hook call inside the component:
 
 ```typescript
-const { extractMemories, isExtracting } = useMemoryExtraction();
+const { getDirectivesForApi } = useNarrativeDirectives(characterId);
 ```
 
-**3. Add Ref to Track Last Extraction**
+**3. Update sendChatMessage Call in handleSend (line 246-256)**
 
-Add a ref to track the last message ID we extracted from (around line 95, with other refs):
+Add `narrativeDirectives` to the sendChatMessage call:
 
 ```typescript
-const lastExtractionMessageId = useRef<string | null>(null);
+const response = await sendChatMessage({
+  messages: chatHistory,
+  character,
+  persona: activePersona,
+  memories: memories?.map(m => m.content) ?? [],
+  canonEvents: canonEvents?.map(e => ({
+    title: e.title,
+    description: e.description,
+  })) ?? [],
+  narrativeDirectives: getDirectivesForApi(),
+  settings: aiSettings,
+});
 ```
 
-**4. Create Extraction Trigger Function**
+**4. Update sendChatMessage Call in handleRegenerate (line 383-393)**
 
-Add a function that checks if extraction should run (every 6 messages) and triggers it. This should be placed near the other handler functions:
+Add `narrativeDirectives` to the regeneration call:
 
 ```typescript
-const maybeExtractMemories = useCallback(async () => {
-  if (!sessionId || !character || isExtracting) return;
-  
-  // Count messages since last extraction (or total if never extracted)
-  const messagesSinceExtraction = lastExtractionMessageId.current
-    ? messages.filter(m => {
-        const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
-        return messages.indexOf(m) > lastIdx;
-      }).length
-    : messages.length;
-  
-  // Trigger extraction every 6 messages
-  if (messagesSinceExtraction >= 6) {
-    const result = await extractMemories(
-      sessionId,
-      character.id,
-      activePersonaId,
-      lastExtractionMessageId.current ?? undefined
-    );
-    
-    // Update last extraction point
-    if (messages.length > 0) {
-      lastExtractionMessageId.current = messages[messages.length - 1].id;
-    }
-    
-    // Optionally show toast on successful extraction
-    if (result.extracted > 0) {
-      toast({
-        title: 'Memories extracted',
-        description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
-      });
-    }
-  }
-}, [sessionId, character, activePersonaId, messages, extractMemories, isExtracting, toast]);
+const response = await sendChatMessage({
+  messages: chatHistory,
+  character,
+  persona: activePersona,
+  memories: memories?.map(m => m.content) ?? [],
+  canonEvents: canonEvents?.map(e => ({
+    title: e.title,
+    description: e.description,
+  })) ?? [],
+  narrativeDirectives: getDirectivesForApi(),
+  settings: aiSettings,
+});
 ```
 
-**5. Trigger After AI Response in handleSend**
+**5. Update sendChatMessage Call in handleGenerateUserMessage (line 425-443)**
 
-In the `handleSend` function, after successfully adding the AI response message (around line 225), call the extraction function:
+Add `narrativeDirectives` to the user message generation call:
 
 ```typescript
-// After: await addMessage.mutateAsync({ ... role: 'character' ... });
-
-// Check if we should extract memories (every 6 messages)
-maybeExtractMemories();
+const response = await sendChatMessage({
+  messages: [...chatHistory, { role: 'system', content: '...' }],
+  character,
+  persona: activePersona,
+  memories: memories?.map(m => m.content) ?? [],
+  canonEvents: canonEvents?.map(e => ({
+    title: e.title,
+    description: e.description,
+  })) ?? [],
+  narrativeDirectives: getDirectivesForApi(),
+  settings: aiSettings,
+});
 ```
 
-**6. Also Trigger After Regeneration**
+**6. Update sendChatMessage Call in handleRegenerateUserMessage (line 462-482)**
 
-In the `handleRegenerate` function, after successfully adding the regenerated response (around line 359), also call extraction:
+Add `narrativeDirectives` to the user message regeneration call:
 
 ```typescript
-// After: await addMessage.mutateAsync({ ... role: 'character' ... });
-
-// Check if we should extract memories
-maybeExtractMemories();
+const response = await sendChatMessage({
+  messages: [...chatHistory, { role: 'system', content: '...' }],
+  character,
+  persona: activePersona,
+  memories: memories?.map(m => m.content) ?? [],
+  canonEvents: canonEvents?.map(e => ({
+    title: e.title,
+    description: e.description,
+  })) ?? [],
+  narrativeDirectives: getDirectivesForApi(),
+  settings: aiSettings,
+});
 ```
 
 ---
@@ -105,22 +110,20 @@ maybeExtractMemories();
 
 | Location | Change |
 |----------|--------|
-| Line ~14 | Add import for `useMemoryExtraction` |
-| Line ~87 | Initialize `extractMemories` and `isExtracting` from hook |
-| Line ~95 | Add `lastExtractionMessageId` ref |
-| New function | Add `maybeExtractMemories` callback |
-| Line ~225 (handleSend) | Call `maybeExtractMemories()` after AI response |
-| Line ~359 (handleRegenerate) | Call `maybeExtractMemories()` after regenerated response |
+| Line 16 | Add import for `useNarrativeDirectives` |
+| Line ~89 | Initialize `getDirectivesForApi` from hook |
+| Line ~246 | Add `narrativeDirectives` to handleSend |
+| Line ~383 | Add `narrativeDirectives` to handleRegenerate |
+| Line ~425 | Add `narrativeDirectives` to handleGenerateUserMessage |
+| Line ~462 | Add `narrativeDirectives` to handleRegenerateUserMessage |
 
 ---
 
 ## How It Works
 
-1. A ref tracks the last message ID where extraction occurred
-2. After each AI response, `maybeExtractMemories` counts messages since last extraction
-3. When count reaches 6+, it triggers the `extract-memories` edge function
-4. The edge function uses Claude 3 Haiku to analyze the conversation
-5. Extracted memories are stored in the database and become available for future responses
-6. A toast notification confirms successful extraction
-7. The ref updates to prevent duplicate extractions
+1. The hook manages an in-memory list of narrative directives (goals, reveals, escalations, resolutions)
+2. `getDirectivesForApi()` returns the directives in the format expected by the chat edge function
+3. All four `sendChatMessage` calls will now include any active directives
+4. The chat edge function injects these as hidden `<narrative_objectives>` in the system prompt
+5. Characters will naturally weave these story objectives into their responses
 
