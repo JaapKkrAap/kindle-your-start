@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { UserPersona, UserPersonaFormData } from '@/types';
 
+async function getCurrentUserId(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  return user.id;
+}
+
 export function usePersonas() {
   return useQuery({
     queryKey: ['personas'],
@@ -67,9 +73,12 @@ export function useCreatePersona() {
   
   return useMutation({
     mutationFn: async (data: UserPersonaFormData): Promise<UserPersona> => {
+      const userId = await getCurrentUserId();
+      
       const { data: created, error } = await supabase
         .from('user_personas')
         .insert({
+          user_id: userId,
           name: data.name,
           avatar_url: data.avatarUrl,
           backstory: data.backstory,

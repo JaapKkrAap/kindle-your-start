@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Server, Cloud, Save, Eye, EyeOff, Key } from 'lucide-react';
+import { Server, Cloud, Save, LogOut, User } from 'lucide-react';
 
 const OPENROUTER_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -30,15 +31,14 @@ const OPENROUTER_MODELS = [
 export default function SettingsPage() {
   const { toast } = useToast();
   const { data: settings, isLoading } = useAISettings();
+  const { user, signOut } = useAuth();
   const updateSettings = useUpdateAISettings();
 
-  const [showApiKey, setShowApiKey] = useState(false);
   const [localSettings, setLocalSettings] = useState({
     provider: 'lmstudio' as 'lmstudio' | 'openrouter',
     lmstudioEndpoint: 'http://localhost:1234/v1',
     lmstudioModel: 'default',
     openrouterModel: 'anthropic/claude-3.5-sonnet',
-    openrouterApiKey: '',
     temperature: 0.8,
     maxTokens: 2048,
     systemPromptOverride: '',
@@ -52,7 +52,6 @@ export default function SettingsPage() {
         lmstudioEndpoint: settings.lmstudioEndpoint,
         lmstudioModel: settings.lmstudioModel,
         openrouterModel: settings.openrouterModel,
-        openrouterApiKey: settings.openrouterApiKey ?? '',
         temperature: settings.temperature,
         maxTokens: settings.maxTokens,
         systemPromptOverride: settings.systemPromptOverride ?? '',
@@ -67,7 +66,6 @@ export default function SettingsPage() {
         lmstudioEndpoint: localSettings.lmstudioEndpoint,
         lmstudioModel: localSettings.lmstudioModel,
         openrouterModel: localSettings.openrouterModel,
-        openrouterApiKey: localSettings.openrouterApiKey || undefined,
         temperature: localSettings.temperature,
         maxTokens: localSettings.maxTokens,
         systemPromptOverride: localSettings.systemPromptOverride || undefined,
@@ -85,6 +83,17 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to sign out',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -92,8 +101,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  const hasApiKey = Boolean(localSettings.openrouterApiKey);
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -111,6 +118,7 @@ export default function SettingsPage() {
             <TabsTrigger value="provider">AI Provider</TabsTrigger>
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="prompts">System Prompt</TabsTrigger>
+            <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
 
           {/* Provider Tab */}
@@ -188,48 +196,11 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 pt-4 border-t border-border/50">
-                    {/* API Key Input */}
-                    <div className="space-y-2">
-                      <Label htmlFor="apikey" className="flex items-center gap-2">
-                        <Key className="h-4 w-4" />
-                        OpenRouter API Key
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="apikey"
-                          type={showApiKey ? 'text' : 'password'}
-                          value={localSettings.openrouterApiKey}
-                          onChange={e => setLocalSettings(s => ({ ...s, openrouterApiKey: e.target.value }))}
-                          placeholder="sk-or-v1-..."
-                          className="bg-muted/50 pr-10"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                          onClick={() => setShowApiKey(!showApiKey)}
-                        >
-                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Get your API key from{' '}
-                        <a 
-                          href="https://openrouter.ai/keys" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          openrouter.ai/keys
-                        </a>
+                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                      <p className="text-sm text-primary">
+                        OpenRouter API key is configured by the administrator. 
+                        Select your preferred model below.
                       </p>
-                      {hasApiKey && (
-                        <div className="flex items-center gap-2 text-xs text-primary">
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                          API key configured
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -330,6 +301,36 @@ export default function SettingsPage() {
                 <p className="mt-2 text-xs text-muted-foreground">
                   This will be prepended to character-specific instructions.
                 </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Account Tab */}
+          <TabsContent value="account" className="space-y-4">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Account
+                </CardTitle>
+                <CardDescription>
+                  Manage your account settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-border/50 p-4">
+                  <p className="text-sm text-muted-foreground">Signed in as</p>
+                  <p className="font-medium">{user?.email}</p>
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={handleSignOut}
+                  className="w-full"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

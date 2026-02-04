@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ChatSession, ChatMessage } from '@/types';
 
+async function getCurrentUserId(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  return user.id;
+}
+
 export function useChatSessions(characterId?: string) {
   return useQuery({
     queryKey: ['chat-sessions', characterId],
@@ -67,9 +73,12 @@ export function useCreateChatSession() {
   
   return useMutation({
     mutationFn: async ({ characterId, personaId, title }: { characterId: string; personaId?: string; title?: string }): Promise<ChatSession> => {
+      const userId = await getCurrentUserId();
+      
       const { data, error } = await supabase
         .from('chat_sessions')
         .insert({
+          user_id: userId,
           character_id: characterId,
           persona_id: personaId,
           title: title ?? 'New Session',
@@ -106,9 +115,12 @@ export function useAddChatMessage() {
       role: 'user' | 'character' | 'system';
       content: string;
     }): Promise<ChatMessage> => {
+      const userId = await getCurrentUserId();
+      
       const { data, error } = await supabase
         .from('chat_messages')
         .insert({
+          user_id: userId,
           session_id: sessionId,
           character_id: characterId,
           persona_id: personaId,

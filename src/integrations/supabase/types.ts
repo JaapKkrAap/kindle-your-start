@@ -21,7 +21,6 @@ export type Database = {
           lmstudio_endpoint: string
           lmstudio_model: string
           max_tokens: number
-          openrouter_api_key: string | null
           openrouter_model: string
           provider: string
           system_prompt_override: string | null
@@ -34,7 +33,6 @@ export type Database = {
           lmstudio_endpoint?: string
           lmstudio_model?: string
           max_tokens?: number
-          openrouter_api_key?: string | null
           openrouter_model?: string
           provider?: string
           system_prompt_override?: string | null
@@ -47,7 +45,6 @@ export type Database = {
           lmstudio_endpoint?: string
           lmstudio_model?: string
           max_tokens?: number
-          openrouter_api_key?: string | null
           openrouter_model?: string
           provider?: string
           system_prompt_override?: string | null
@@ -67,6 +64,7 @@ export type Database = {
           persona_id: string | null
           source_message_ids: string[]
           title: string
+          user_id: string | null
         }
         Insert: {
           character_id: string
@@ -78,6 +76,7 @@ export type Database = {
           persona_id?: string | null
           source_message_ids?: string[]
           title: string
+          user_id?: string | null
         }
         Update: {
           character_id?: string
@@ -89,6 +88,7 @@ export type Database = {
           persona_id?: string | null
           source_message_ids?: string[]
           title?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -120,6 +120,7 @@ export type Database = {
           personality_traits: string[]
           speech_style: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -133,6 +134,7 @@ export type Database = {
           personality_traits?: string[]
           speech_style?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           personality_traits?: string[]
           speech_style?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -160,6 +163,7 @@ export type Database = {
           persona_id: string | null
           role: string
           session_id: string
+          user_id: string | null
         }
         Insert: {
           character_id: string
@@ -171,6 +175,7 @@ export type Database = {
           persona_id?: string | null
           role: string
           session_id: string
+          user_id?: string | null
         }
         Update: {
           character_id?: string
@@ -182,6 +187,7 @@ export type Database = {
           persona_id?: string | null
           role?: string
           session_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -215,6 +221,7 @@ export type Database = {
           persona_id: string | null
           title: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           character_id: string
@@ -223,6 +230,7 @@ export type Database = {
           persona_id?: string | null
           title?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           character_id?: string
@@ -231,6 +239,7 @@ export type Database = {
           persona_id?: string | null
           title?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -259,6 +268,7 @@ export type Database = {
           importance: number
           persona_id: string | null
           source_message_id: string | null
+          user_id: string | null
         }
         Insert: {
           category: string
@@ -269,6 +279,7 @@ export type Database = {
           importance?: number
           persona_id?: string | null
           source_message_id?: string | null
+          user_id?: string | null
         }
         Update: {
           category?: string
@@ -279,6 +290,7 @@ export type Database = {
           importance?: number
           persona_id?: string | null
           source_message_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -304,6 +316,30 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_personas: {
         Row: {
           avatar_url: string | null
@@ -317,6 +353,7 @@ export type Database = {
           personality_traits: string[]
           speech_style: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -330,6 +367,7 @@ export type Database = {
           personality_traits?: string[]
           speech_style?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -343,6 +381,7 @@ export type Database = {
           personality_traits?: string[]
           speech_style?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }

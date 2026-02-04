@@ -86,7 +86,6 @@ export interface AISettings {
   lmstudioEndpoint: string;
   lmstudioModel: string;
   openrouterModel: string;
-  openrouterApiKey?: string;
   temperature: number;
   maxTokens: number;
   systemPromptOverride?: string;

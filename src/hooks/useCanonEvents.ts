@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CanonEvent } from '@/types';
 
+async function getCurrentUserId(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  return user.id;
+}
+
 interface CreateCanonEventInput {
   characterId: string;
   personaId?: string;
@@ -48,9 +54,12 @@ export function useCreateCanonEvent() {
 
   return useMutation({
     mutationFn: async (input: CreateCanonEventInput) => {
+      const userId = await getCurrentUserId();
+      
       const { data, error } = await supabase
         .from('canon_events')
         .insert({
+          user_id: userId,
           character_id: input.characterId,
           persona_id: input.personaId ?? null,
           title: input.title,
