@@ -1,13 +1,10 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { BookMarked, Edit, RefreshCw, MoreVertical } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { BookMarked, Edit, RefreshCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ChatMessage, Character, UserPersona } from '@/types';
 import { motion } from 'framer-motion';
 
@@ -17,7 +14,7 @@ interface ChatMessageBubbleProps {
   persona?: UserPersona;
   onToggleCanon: (id: string, isCanon: boolean) => void;
   onEdit: (id: string) => void;
-  onRegenerate?: (id: string) => void;
+  onRegenerate?: (id: string, instruction?: string) => void;
 }
 
 export function ChatMessageBubble({
@@ -150,19 +147,71 @@ export function ChatMessageBubble({
             Edit
           </Button>
           {!isUser && onRegenerate && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => onRegenerate(message.id)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Regenerate
-            </Button>
+            <RegeneratePopover 
+              messageId={message.id} 
+              onRegenerate={onRegenerate} 
+            />
           )}
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// Regenerate popover component
+function RegeneratePopover({ 
+  messageId, 
+  onRegenerate 
+}: { 
+  messageId: string; 
+  onRegenerate: (id: string, instruction?: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState('');
+
+  const handleRegenerate = (instruction?: string) => {
+    onRegenerate(messageId, instruction);
+    setOpen(false);
+    setCustomInstruction('');
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+          <RefreshCw className="h-3 w-3 mr-1" />
+          Regenerate
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="start">
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs h-8"
+            onClick={() => handleRegenerate()}
+          >
+            Same intent
+          </Button>
+          <div className="relative">
+            <Input
+              placeholder="Custom instruction..."
+              className="h-8 text-xs pr-8"
+              value={customInstruction}
+              onChange={(e) => setCustomInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && customInstruction.trim()) {
+                  handleRegenerate(customInstruction.trim());
+                }
+              }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+              Enter
+            </span>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
