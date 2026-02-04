@@ -13,6 +13,7 @@ import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
 import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
+import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
 import { 
@@ -87,6 +88,7 @@ export default function ChatPage() {
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
   const { extractMemories, isExtracting } = useMemoryExtraction();
+  const { getDirectivesForApi } = useNarrativeDirectives(characterId);
   
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -252,6 +254,7 @@ export default function ChatPage() {
           title: e.title,
           description: e.description,
         })) ?? [],
+        narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
       });
 
@@ -389,6 +392,7 @@ export default function ChatPage() {
           title: e.title,
           description: e.description,
         })) ?? [],
+        narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
       });
       
@@ -439,6 +443,7 @@ Keep it natural and in-character for the user persona.`
         title: e.title,
         description: e.description,
       })) ?? [],
+      narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
     });
     
@@ -478,6 +483,7 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
         title: e.title,
         description: e.description,
       })) ?? [],
+      narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
     });
     
