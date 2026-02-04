@@ -464,63 +464,65 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
     .slice(0, 2);
 
   return (
-    <div className="flex h-full flex-col relative">
-      {/* Header */}
-      <header className="flex items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-sm px-4 py-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-5 w-5" />
+    <div className="flex h-full flex-col relative bg-chat">
+      {/* Minimal Header */}
+      <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          onClick={() => navigate('/')}
+        >
+          <ArrowLeft className="h-4 w-4" />
         </Button>
 
-        {/* Character info */}
-        <Avatar className="h-10 w-10 border-2 border-primary/50">
-          <AvatarImage src={character.avatarUrl} alt={character.name} />
-          <AvatarFallback 
-            className="font-serif text-white"
-            style={{ backgroundColor: getAvatarColor(character.name) }}
-          >
-            {characterInitials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-display font-semibold truncate">{character.name}</h1>
-          <p className="text-xs text-muted-foreground truncate">
-            {character.personalityTraits.slice(0, 3).join(' • ')}
-          </p>
+        {/* Character info - centered */}
+        <div className="flex-1 flex items-center justify-center gap-3">
+          <Avatar className="h-10 w-10 border-2 border-primary/40">
+            <AvatarImage src={character.avatarUrl} alt={character.name} />
+            <AvatarFallback 
+              className="text-sm font-medium text-white"
+              style={{ backgroundColor: getAvatarColor(character.name) }}
+            >
+              {characterInitials}
+            </AvatarFallback>
+          </Avatar>
+          <h1 className="text-lg font-semibold">{character.name}</h1>
         </div>
 
-        {/* Session picker */}
-        <SessionPicker
-          sessions={sessions ?? []}
-          currentSessionId={sessionId}
-          onSelectSession={handleSelectSession}
-          onNewSession={handleNewSession}
-          isLoading={createSession.isPending}
-        />
+        {/* Right controls */}
+        <div className="flex items-center gap-2">
+          <SessionPicker
+            sessions={sessions ?? []}
+            currentSessionId={sessionId}
+            onSelectSession={handleSelectSession}
+            onNewSession={handleNewSession}
+            isLoading={createSession.isPending}
+          />
 
-        {/* Persona selector */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <User className="h-4 w-4" />
-              {activePersona?.name ?? 'No Persona'}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-popover">
-            <DropdownMenuItem onClick={() => setActivePersonaId(undefined)}>
-              <User className="mr-2 h-4 w-4 text-muted-foreground" />
-              No Persona (You)
-            </DropdownMenuItem>
-            {personas?.map(persona => (
-              <DropdownMenuItem
-                key={persona.id}
-                onClick={() => setActivePersonaId(persona.id)}
-              >
-                <User className="mr-2 h-4 w-4" />
-                {persona.name}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <User className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover">
+              <DropdownMenuItem onClick={() => setActivePersonaId(undefined)}>
+                <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                No Persona (You)
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {personas?.map(persona => (
+                <DropdownMenuItem
+                  key={persona.id}
+                  onClick={() => setActivePersonaId(persona.id)}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  {persona.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
 
       {/* Messages */}
@@ -532,7 +534,7 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
         {loadingMessages ? (
           <ChatLoadingSkeleton />
         ) : (
-          <div className="py-4">
+          <div className="py-4 max-w-3xl mx-auto">
             {messages.map(message => (
               <ChatMessageBubble
                 key={message.id}
