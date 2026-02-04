@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
@@ -576,8 +577,11 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
                 <User className="h-4 w-4" />
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {activePersona?.name ?? 'You'}
+                </Badge>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-popover">
