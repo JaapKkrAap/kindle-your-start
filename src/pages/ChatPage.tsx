@@ -304,7 +304,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleRegenerate = async (id: string) => {
+  const handleRegenerate = async (id: string, instruction?: string) => {
     if (!sessionId || !character || !aiSettings || isTyping) return;
     
     const messageIndex = messages.findIndex(m => m.id === id);
@@ -322,10 +322,18 @@ export default function ChatPage() {
     const previousMessages = messages.slice(0, messageIndex);
     
     // Build chat history
-    const chatHistory = previousMessages.map(m => ({
+    const chatHistory: { role: string; content: string }[] = previousMessages.map(m => ({
       role: m.role,
       content: m.content,
     }));
+    
+    // Add regeneration instruction if provided
+    if (instruction) {
+      chatHistory.push({
+        role: 'system',
+        content: `[Regeneration guidance: ${instruction}]`,
+      });
+    }
     
     setIsTyping(true);
     
@@ -359,6 +367,76 @@ export default function ChatPage() {
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleGenerateUserMessage = async (): Promise<string> => {
+    if (!character || !aiSettings) throw new Error('Missing context');
+    
+    const chatHistory = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+    
+    const response = await sendChatMessage({
+      messages: [
+        ...chatHistory,
+        { 
+          role: 'system', 
+          content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
+Output ONLY the suggested message text, no meta-commentary or quotes.
+Keep it natural and in-character for the user persona.`
+        }
+      ],
+      character,
+      persona: activePersona,
+      memories: memories?.map(m => m.content) ?? [],
+      canonEvents: canonEvents?.map(e => ({
+        title: e.title,
+        description: e.description,
+      })) ?? [],
+      settings: aiSettings,
+    });
+    
+    return response.content;
+  };
+
+  const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
+    if (!character || !aiSettings) throw new Error('Missing context');
+    
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMessage) throw new Error('No user message to regenerate');
+    
+    const chatHistory = messages
+      .slice(0, messages.indexOf(lastUserMessage))
+      .map(m => ({ role: m.role, content: m.content }));
+    
+    const instructionText = instruction 
+      ? `Apply this adjustment: ${instruction}` 
+      : 'Generate a similar message with the same intent';
+    
+    const response = await sendChatMessage({
+      messages: [
+        ...chatHistory,
+        { 
+          role: 'system', 
+          content: `The user previously wrote: "${lastUserMessage.content}"
+        
+${instructionText}
+
+Output ONLY the regenerated message text, no meta-commentary or quotes.`
+        }
+      ],
+      character,
+      persona: activePersona,
+      memories: memories?.map(m => m.content) ?? [],
+      canonEvents: canonEvents?.map(e => ({
+        title: e.title,
+        description: e.description,
+      })) ?? [],
+      settings: aiSettings,
+    });
+    
+    return response.content;
   };
 
   if (loadingCharacter || loadingSessions) {
@@ -482,6 +560,9 @@ export default function ChatPage() {
         isLoading={addMessage.isPending || isTyping}
         placeholder={`Message ${character.name}...`}
         inputRef={chatInputRef}
+        onGenerateMessage={handleGenerateUserMessage}
+        onRegenerateUserMessage={handleRegenerateUserMessage}
+        hasUserMessages={messages.some(m => m.role === 'user')}
       />
 
       {/* Edit Message Dialog */}

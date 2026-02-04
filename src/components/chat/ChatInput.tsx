@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Sparkles } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Send, Sparkles, Wand2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatInputProps {
@@ -9,6 +11,9 @@ interface ChatInputProps {
   isLoading?: boolean;
   placeholder?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
+  onGenerateMessage?: () => Promise<string>;
+  onRegenerateUserMessage?: (instruction?: string) => Promise<string>;
+  hasUserMessages?: boolean;
 }
 
 const TONE_BUTTONS = [
@@ -18,9 +23,20 @@ const TONE_BUTTONS = [
   { label: 'Get intense', value: '[Tone: intense]' },
 ];
 
-export function ChatInput({ onSend, isLoading, placeholder, inputRef }: ChatInputProps) {
+export function ChatInput({ 
+  onSend, 
+  isLoading, 
+  placeholder, 
+  inputRef,
+  onGenerateMessage,
+  onRegenerateUserMessage,
+  hasUserMessages 
+}: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showToneButtons, setShowToneButtons] = useState(false);
+  const [showGeneratePopover, setShowGeneratePopover] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState('');
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = inputRef || internalRef;
 
@@ -55,6 +71,37 @@ export function ChatInput({ onSend, isLoading, placeholder, inputRef }: ChatInpu
   const appendTone = (tone: string) => {
     setMessage(prev => `${tone} ${prev}`.trim());
     textareaRef.current?.focus();
+  };
+
+  const handleGenerateMessage = async () => {
+    if (!onGenerateMessage) return;
+    setIsGenerating(true);
+    try {
+      const generated = await onGenerateMessage();
+      setMessage(generated);
+      setShowGeneratePopover(false);
+      textareaRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to generate message:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRegenerateUserMessage = async (instruction?: string) => {
+    if (!onRegenerateUserMessage) return;
+    setIsGenerating(true);
+    try {
+      const generated = await onRegenerateUserMessage(instruction);
+      setMessage(generated);
+      setShowGeneratePopover(false);
+      setCustomInstruction('');
+      textareaRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to regenerate message:', error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -93,6 +140,72 @@ export function ChatInput({ onSend, isLoading, placeholder, inputRef }: ChatInpu
         >
           <Sparkles className="h-5 w-5" />
         </Button>
+
+        {/* Generate message button */}
+        {onGenerateMessage && (
+          <Popover open={showGeneratePopover} onOpenChange={setShowGeneratePopover}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                disabled={isLoading || isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-5 w-5" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="space-y-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs h-8"
+                  onClick={handleGenerateMessage}
+                  disabled={isGenerating}
+                >
+                  <Sparkles className="h-3 w-3 mr-2" />
+                  Generate for me
+                </Button>
+                
+                {hasUserMessages && onRegenerateUserMessage && (
+                  <>
+                    <div className="border-t border-border/50 my-2" />
+                    <p className="text-[10px] text-muted-foreground px-2">Regenerate last message</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-xs h-8"
+                      onClick={() => handleRegenerateUserMessage()}
+                      disabled={isGenerating}
+                    >
+                      Same intent
+                    </Button>
+                    <div className="relative">
+                      <Input
+                        placeholder="Custom instruction..."
+                        className="h-8 text-xs pr-8"
+                        value={customInstruction}
+                        onChange={(e) => setCustomInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && customInstruction.trim()) {
+                            handleRegenerateUserMessage(customInstruction.trim());
+                          }
+                        }}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                        Enter
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Input */}
         <div className="flex-1 relative">
