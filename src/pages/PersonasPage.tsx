@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PersonaCard } from '@/components/personas/PersonaCard';
 import { PersonaFormDialog } from '@/components/personas/PersonaFormDialog';
 import { usePersonas, useCreatePersona, useUpdatePersona, useDeletePersona } from '@/hooks/usePersonas';
@@ -101,7 +102,7 @@ export default function PersonasPage() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl bg-muted/50" />
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       ) : personas && personas.length > 0 ? (
@@ -120,7 +121,7 @@ export default function PersonasPage() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 rounded-full bg-muted p-6">
-            <Plus className="h-8 w-8 text-muted-foreground" />
+            <User className="h-8 w-8 text-muted-foreground" />
           </div>
           <h2 className="font-display text-xl font-semibold">No personas yet</h2>
           <p className="mt-2 max-w-sm text-muted-foreground">

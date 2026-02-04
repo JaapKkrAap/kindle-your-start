@@ -12,6 +12,16 @@ import type { Character } from '@/types';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
+// Generate consistent color from name
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 45%)`;
+}
+
 interface CharacterCardProps {
   character: Character;
   onPlay: (character: Character) => void;
@@ -45,8 +55,11 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <span className="text-5xl font-serif text-muted-foreground/50">
+              <div 
+                className="flex h-full w-full items-center justify-center"
+                style={{ backgroundColor: getAvatarColor(character.name) }}
+              >
+                <span className="text-5xl font-serif text-white/90">
                   {initials}
                 </span>
               </div>

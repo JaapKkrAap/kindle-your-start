@@ -8,6 +8,8 @@ import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
+import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
+import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
@@ -32,6 +34,16 @@ import {
 import { AnimatePresence } from 'framer-motion';
 import type { ChatMessage } from '@/types';
 
+// Generate consistent color from name
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 45%)`;
+}
+
 export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
@@ -51,6 +63,7 @@ export default function ChatPage() {
   const [activePersonaId, setActivePersonaId] = useState<string | undefined>();
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
@@ -58,12 +71,25 @@ export default function ChatPage() {
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
   
-  const { data: dbMessages } = useChatMessages(sessionId ?? undefined);
+  const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const activePersona = personas?.find(p => p.id === activePersonaId);
   const isCreatingSession = useRef(false);
+
+  // Keyboard shortcut: Cmd/Ctrl+K to focus input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        chatInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Handle new session creation
   const handleNewSession = useCallback(async () => {
@@ -106,12 +132,27 @@ export default function ChatPage() {
     }
   }, [sessions, loadingSessions, sessionId, character, handleNewSession]);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
+  // Smooth scroll to bottom on new messages
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
-  }, [messages, isTyping]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, scrollToBottom]);
+
+  // Track scroll position for scroll-to-bottom button
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollButton(!isNearBottom);
+  }, []);
 
   // Handle session switch
   const handleSelectSession = (id: string) => {
@@ -251,7 +292,7 @@ export default function ChatPage() {
     .slice(0, 2);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col relative">
       {/* Header */}
       <header className="flex items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-sm px-4 py-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
@@ -261,7 +302,12 @@ export default function ChatPage() {
         {/* Character info */}
         <Avatar className="h-10 w-10 border-2 border-primary/50">
           <AvatarImage src={character.avatarUrl} alt={character.name} />
-          <AvatarFallback className="bg-primary/20 font-serif">{characterInitials}</AvatarFallback>
+          <AvatarFallback 
+            className="font-serif text-white"
+            style={{ backgroundColor: getAvatarColor(character.name) }}
+          >
+            {characterInitials}
+          </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           <h1 className="font-display font-semibold truncate">{character.name}</h1>
@@ -306,30 +352,42 @@ export default function ChatPage() {
       </header>
 
       {/* Messages */}
-      <ScrollArea ref={scrollRef} className="flex-1">
-        <div className="py-4">
-          {messages.map(message => (
-            <ChatMessageBubble
-              key={message.id}
-              message={message}
-              character={character}
-              persona={activePersona}
-              onToggleCanon={handleToggleCanon}
-              onEdit={handleEdit}
-              onRegenerate={message.role === 'character' ? handleRegenerate : undefined}
-            />
-          ))}
-          <AnimatePresence>
-            {isTyping && <TypingIndicator characterName={character.name} />}
-          </AnimatePresence>
-        </div>
+      <ScrollArea 
+        ref={scrollRef} 
+        className="flex-1"
+        onScrollCapture={handleScroll}
+      >
+        {loadingMessages ? (
+          <ChatLoadingSkeleton />
+        ) : (
+          <div className="py-4">
+            {messages.map(message => (
+              <ChatMessageBubble
+                key={message.id}
+                message={message}
+                character={character}
+                persona={activePersona}
+                onToggleCanon={handleToggleCanon}
+                onEdit={handleEdit}
+                onRegenerate={message.role === 'character' ? handleRegenerate : undefined}
+              />
+            ))}
+            <AnimatePresence>
+              {isTyping && <TypingIndicator characterName={character.name} />}
+            </AnimatePresence>
+          </div>
+        )}
       </ScrollArea>
+
+      {/* Scroll to bottom button */}
+      <ScrollToBottomButton visible={showScrollButton} onClick={scrollToBottom} />
 
       {/* Input */}
       <ChatInput
         onSend={handleSend}
         isLoading={addMessage.isPending || isTyping}
         placeholder={`Message ${character.name}...`}
+        inputRef={chatInputRef}
       />
     </div>
   );

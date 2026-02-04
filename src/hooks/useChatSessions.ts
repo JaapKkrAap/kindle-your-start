@@ -202,3 +202,31 @@ export function useUpdateSession() {
     },
   });
 }
+
+export function useDeleteSession() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      // Delete all messages first (cascade not automatic)
+      const { error: msgError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', id);
+      
+      if (msgError) throw msgError;
+      
+      // Then delete the session
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+    },
+  });
+}
