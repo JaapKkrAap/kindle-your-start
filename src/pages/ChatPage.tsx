@@ -24,6 +24,7 @@ import {
 } from '@/hooks/useChatSessions';
 import { useAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { sendChatMessage } from '@/lib/ai';
 import {
   DropdownMenu,
@@ -214,6 +215,11 @@ export default function ChatPage() {
         title: 'AI Error',
         description: errorMessage,
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={() => handleSend(content)}>
+            Retry
+          </ToastAction>
+        ),
       });
     } finally {
       setIsTyping(false);

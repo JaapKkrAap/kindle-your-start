@@ -6,6 +6,7 @@ import { PersonaCard } from '@/components/personas/PersonaCard';
 import { PersonaFormDialog } from '@/components/personas/PersonaFormDialog';
 import { usePersonas, useCreatePersona, useUpdatePersona, useDeletePersona } from '@/hooks/usePersonas';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import type { UserPersona, UserPersonaFormData } from '@/types';
 import {
   AlertDialog,
@@ -43,6 +44,11 @@ export default function PersonasPage() {
         title: 'Error',
         description: 'Failed to create persona',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={() => handleCreate(data)}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };
@@ -76,6 +82,11 @@ export default function PersonasPage() {
         title: 'Error',
         description: 'Failed to delete persona',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={handleDelete}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };
@@ -172,6 +183,11 @@ export default function PersonasPage() {
                 title: 'Error',
                 description: 'Failed to update persona',
                 variant: 'destructive',
+                action: (
+                  <ToastAction altText="Retry" onClick={() => updatePersona.mutate({ id: editingPersona.id, data })}>
+                    Retry
+                  </ToastAction>
+                ),
               });
             }
           }}
