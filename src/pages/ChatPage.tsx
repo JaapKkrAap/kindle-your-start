@@ -12,6 +12,7 @@ import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
 import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
+import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
 import { 
@@ -85,6 +86,7 @@ export default function ChatPage() {
   const { data: canonEvents } = useCanonEvents(characterId);
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
+  const { extractMemories, isExtracting } = useMemoryExtraction();
   
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -93,6 +95,7 @@ export default function ChatPage() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const activePersona = personas?.find(p => p.id === activePersonaId);
   const isCreatingSession = useRef(false);
+  const lastExtractionMessageId = useRef<string | null>(null);
 
   // Keyboard shortcut: Cmd/Ctrl+K to focus input
   useEffect(() => {
@@ -175,6 +178,42 @@ export default function ChatPage() {
     setIsTyping(false);
   };
 
+  // Memory extraction trigger (every 6 messages)
+  const maybeExtractMemories = useCallback(async () => {
+    if (!sessionId || !character || isExtracting) return;
+    
+    // Count messages since last extraction (or total if never extracted)
+    const messagesSinceExtraction = lastExtractionMessageId.current
+      ? messages.filter(m => {
+          const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
+          return messages.indexOf(m) > lastIdx;
+        }).length
+      : messages.length;
+    
+    // Trigger extraction every 6 messages
+    if (messagesSinceExtraction >= 6) {
+      const result = await extractMemories(
+        sessionId,
+        character.id,
+        activePersonaId,
+        lastExtractionMessageId.current ?? undefined
+      );
+      
+      // Update last extraction point
+      if (messages.length > 0) {
+        lastExtractionMessageId.current = messages[messages.length - 1].id;
+      }
+      
+      // Show toast on successful extraction
+      if (result.extracted > 0) {
+        toast({
+          title: 'Memories extracted',
+          description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
+        });
+      }
+    }
+  }, [sessionId, character, activePersonaId, messages, extractMemories, isExtracting, toast]);
+
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
 
@@ -223,6 +262,9 @@ export default function ChatPage() {
         role: 'character',
         content: response.content,
       });
+
+      // Check if we should extract memories (every 6 messages)
+      maybeExtractMemories();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get AI response';
       toast({
@@ -357,6 +399,9 @@ export default function ChatPage() {
         role: 'character',
         content: response.content,
       });
+
+      // Check if we should extract memories
+      maybeExtractMemories();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate';
       toast({
