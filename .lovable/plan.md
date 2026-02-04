@@ -1,177 +1,382 @@
 
-
-# Implement Edit, Regenerate & Fix Character Editing
+# Bot Regeneration Enhancement & User Message Generation
 
 ## Overview
 
-This plan implements three features:
-1. **Message Edit** - Edit chat messages inline with a dialog
-2. **Message Regenerate** - Re-generate AI responses from a specific point
-3. **Fix Character Editing** - Resolve issues preventing character edits
+This plan implements two major enhancements:
+1. **Bot Regeneration Popover** - Extend the regenerate button with options for "Same intent" or custom instruction
+2. **User Message Generation Button** - New button in chat input for AI-assisted message creation
 
 ---
 
-## Part 1: Message Edit Functionality
+## Part 1: Bot Regeneration Enhancement
 
-### What It Does
-Allows users to edit any message in the chat. When edited:
-- The message content updates in the database
-- An `edited_at` timestamp is set
-- The "(edited)" label appears on the message
+### Current State
+The regenerate button (in `ChatMessageBubble.tsx`) is a simple button that calls `onRegenerate(id)` directly. The regeneration logic (in `ChatPage.tsx`) deletes messages from that point and re-generates.
+
+### New Behavior
+Replace the button with a popover containing:
+- **"Same intent"** - Current default behavior
+- **Text input** for custom instruction (e.g., "more concise", "add code examples")
 
 ### Implementation
+
+**File: `src/components/chat/ChatMessageBubble.tsx`**
+
+Update the `onRegenerate` prop signature:
+```typescript
+onRegenerate?: (id: string, instruction?: string) => void;
+```
+
+Replace the regenerate button with a popover:
+```typescript
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+```
+
+New JSX for regenerate action:
+```typescript
+{!isUser && onRegenerate && (
+  <Popover>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+        <RefreshCw className="h-3 w-3 mr-1" />
+        Regenerate
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="w-64 p-3" align="start">
+      <div className="space-y-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-xs h-8"
+          onClick={() => onRegenerate(message.id)}
+        >
+          Same intent
+        </Button>
+        <div className="relative">
+          <Input
+            placeholder="Custom instruction..."
+            className="h-8 text-xs pr-8"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                onRegenerate(message.id, e.currentTarget.value.trim());
+              }
+            }}
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+            Enter
+          </span>
+        </div>
+      </div>
+    </PopoverContent>
+  </Popover>
+)}
+```
 
 **File: `src/pages/ChatPage.tsx`**
 
-Add state for editing:
+Update `handleRegenerate` signature:
 ```typescript
-const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-const [editContent, setEditContent] = useState('');
+const handleRegenerate = async (id: string, instruction?: string) => {
 ```
 
-Update `handleEdit`:
+Pass instruction to AI call - modify the messages before sending:
 ```typescript
-const handleEdit = (id: string) => {
-  const message = messages.find(m => m.id === id);
-  if (message) {
-    setEditingMessageId(id);
-    setEditContent(message.content);
-  }
-};
-```
+const chatHistory = previousMessages.map(m => ({
+  role: m.role,
+  content: m.content,
+}));
 
-Add save handler:
-```typescript
-const handleSaveEdit = async () => {
-  if (!editingMessageId) return;
-  
-  try {
-    await updateMessage.mutateAsync({ 
-      id: editingMessageId, 
-      content: editContent 
-    });
-    setEditingMessageId(null);
-    setEditContent('');
-    toast({
-      title: 'Message updated',
-      description: 'Your edit has been saved.',
-    });
-  } catch (error) {
-    toast({
-      title: 'Error',
-      description: 'Failed to update message',
-      variant: 'destructive',
-      action: <ToastAction altText="Retry" onClick={handleSaveEdit}>Retry</ToastAction>,
-    });
-  }
-};
-```
-
-Add import:
-```typescript
-import { useUpdateMessage } from '@/hooks/useChatSessions';
-```
-
-Add Edit Dialog UI (before closing `</div>` of main component):
-```typescript
-<Dialog open={!!editingMessageId} onOpenChange={() => setEditingMessageId(null)}>
-  <DialogContent className="glass-card max-w-2xl">
-    <DialogHeader>
-      <DialogTitle>Edit Message</DialogTitle>
-    </DialogHeader>
-    <Textarea
-      value={editContent}
-      onChange={(e) => setEditContent(e.target.value)}
-      className="min-h-[150px] bg-muted/50"
-      placeholder="Edit your message..."
-    />
-    <DialogFooter>
-      <Button variant="ghost" onClick={() => setEditingMessageId(null)}>
-        Cancel
-      </Button>
-      <Button onClick={handleSaveEdit} disabled={updateMessage.isPending}>
-        {updateMessage.isPending ? 'Saving...' : 'Save'}
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-```
-
----
-
-## Part 2: Message Regenerate Functionality
-
-### What It Does
-When the user clicks "Regenerate" on a character message:
-1. Delete that message and all messages after it
-2. Re-send the conversation to the AI
-3. Get a new response
-
-### Implementation
-
-**File: `src/hooks/useChatSessions.ts`**
-
-Add a hook to delete messages after a certain point:
-```typescript
-export function useDeleteMessagesAfter() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ sessionId, afterTimestamp }: { 
-      sessionId: string; 
-      afterTimestamp: Date 
-    }): Promise<void> => {
-      const { error } = await supabase
-        .from('chat_messages')
-        .delete()
-        .eq('session_id', sessionId)
-        .gte('created_at', afterTimestamp.toISOString());
-      
-      if (error) throw error;
-    },
-    onSuccess: (_, { sessionId }) => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
-    },
+// Add regeneration instruction if provided
+if (instruction) {
+  chatHistory.push({ 
+    role: 'user', 
+    content: `[Regeneration instruction: ${instruction}]` 
   });
 }
 ```
 
+**File: `supabase/functions/chat/index.ts`**
+
+Add support for regeneration instructions in system prompt:
+```typescript
+interface ChatRequest {
+  // ...existing fields
+  regenerateInstruction?: string;
+}
+```
+
+Modify `buildSystemPrompt` to include instruction handling:
+```typescript
+if (req.regenerateInstruction) {
+  prompt += `\n\n<regeneration_guidance>
+For this response, apply the following adjustment: ${req.regenerateInstruction}
+</regeneration_guidance>`;
+}
+```
+
+---
+
+## Part 2: User Message Generation Button
+
+### New Functionality
+Add a button (Wand2 icon) next to the input that opens a popover with:
+1. **"Generate for me"** - AI creates a suggested user message based on conversation
+2. **"Regenerate last message"** - Only visible after user has sent at least one message
+
+### Implementation
+
+**File: `src/components/chat/ChatInput.tsx`**
+
+Update props interface:
+```typescript
+interface ChatInputProps {
+  onSend: (message: string) => void;
+  isLoading?: boolean;
+  placeholder?: string;
+  inputRef?: React.RefObject<HTMLTextAreaElement>;
+  onGenerateMessage?: () => Promise<string>;
+  onRegenerateUserMessage?: (instruction?: string) => Promise<string>;
+  hasUserMessages?: boolean;
+}
+```
+
+Add new imports:
+```typescript
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Wand2, Loader2 } from 'lucide-react';
+```
+
+Add state for generation:
+```typescript
+const [isGenerating, setIsGenerating] = useState(false);
+const [showGeneratePopover, setShowGeneratePopover] = useState(false);
+```
+
+Add generate button UI (between Sparkles button and textarea):
+```typescript
+<Popover open={showGeneratePopover} onOpenChange={setShowGeneratePopover}>
+  <PopoverTrigger asChild>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="shrink-0"
+      disabled={isLoading || isGenerating}
+    >
+      {isGenerating ? (
+        <Loader2 className="h-5 w-5 animate-spin" />
+      ) : (
+        <Wand2 className="h-5 w-5" />
+      )}
+    </Button>
+  </PopoverTrigger>
+  <PopoverContent className="w-64 p-3" align="start">
+    <div className="space-y-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start text-xs h-8"
+        onClick={handleGenerateMessage}
+        disabled={isGenerating}
+      >
+        <Sparkles className="h-3 w-3 mr-2" />
+        Generate for me
+      </Button>
+      
+      {hasUserMessages && (
+        <>
+          <div className="border-t border-border/50 my-2" />
+          <p className="text-[10px] text-muted-foreground px-2">Regenerate last message</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs h-8"
+            onClick={() => handleRegenerateUserMessage()}
+            disabled={isGenerating}
+          >
+            Same intent
+          </Button>
+          <div className="relative">
+            <Input
+              placeholder="Custom instruction..."
+              className="h-8 text-xs pr-8"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                  handleRegenerateUserMessage(e.currentTarget.value.trim());
+                }
+              }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+              Enter
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  </PopoverContent>
+</Popover>
+```
+
+Add handler functions:
+```typescript
+const handleGenerateMessage = async () => {
+  if (!onGenerateMessage) return;
+  setIsGenerating(true);
+  try {
+    const generated = await onGenerateMessage();
+    setMessage(generated);
+    setShowGeneratePopover(false);
+    textareaRef.current?.focus();
+  } catch (error) {
+    console.error('Failed to generate message:', error);
+  } finally {
+    setIsGenerating(false);
+  }
+};
+
+const handleRegenerateUserMessage = async (instruction?: string) => {
+  if (!onRegenerateUserMessage) return;
+  setIsGenerating(true);
+  try {
+    const generated = await onRegenerateUserMessage(instruction);
+    setMessage(generated);
+    setShowGeneratePopover(false);
+    textareaRef.current?.focus();
+  } catch (error) {
+    console.error('Failed to regenerate message:', error);
+  } finally {
+    setIsGenerating(false);
+  }
+};
+```
+
 **File: `src/pages/ChatPage.tsx`**
 
-Import new hook:
+Add new handler functions:
 ```typescript
-import { useDeleteMessagesAfter } from '@/hooks/useChatSessions';
+const handleGenerateUserMessage = async (): Promise<string> => {
+  if (!character || !aiSettings) throw new Error('Missing context');
+  
+  const chatHistory = messages.map(m => ({
+    role: m.role,
+    content: m.content,
+  }));
+  
+  // Request AI to generate a user message suggestion
+  const response = await sendChatMessage({
+    messages: [
+      ...chatHistory,
+      { 
+        role: 'system', 
+        content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
+Output ONLY the suggested message text, no meta-commentary or quotes.
+Keep it natural and in-character for the user persona.`
+      }
+    ],
+    character,
+    persona: activePersona,
+    memories: memories?.map(m => m.content) ?? [],
+    canonEvents: canonEvents?.map(e => ({
+      title: e.title,
+      description: e.description,
+    })) ?? [],
+    settings: aiSettings,
+  });
+  
+  return response.content;
+};
+
+const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
+  if (!character || !aiSettings) throw new Error('Missing context');
+  
+  // Find the last user message
+  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+  if (!lastUserMessage) throw new Error('No user message to regenerate');
+  
+  const chatHistory = messages
+    .slice(0, messages.indexOf(lastUserMessage))
+    .map(m => ({ role: m.role, content: m.content }));
+  
+  const instructionText = instruction 
+    ? `Apply this adjustment: ${instruction}` 
+    : 'Generate a similar message with the same intent';
+  
+  const response = await sendChatMessage({
+    messages: [
+      ...chatHistory,
+      { 
+        role: 'system', 
+        content: `The user previously wrote: "${lastUserMessage.content}"
+        
+${instructionText}
+
+Output ONLY the regenerated message text, no meta-commentary or quotes.`
+      }
+    ],
+    character,
+    persona: activePersona,
+    memories: memories?.map(m => m.content) ?? [],
+    canonEvents: canonEvents?.map(e => ({
+      title: e.title,
+      description: e.description,
+    })) ?? [],
+    settings: aiSettings,
+  });
+  
+  return response.content;
+};
 ```
 
-Add hook instance:
+Update ChatInput usage:
 ```typescript
-const deleteMessagesAfter = useDeleteMessagesAfter();
+<ChatInput
+  onSend={handleSend}
+  isLoading={addMessage.isPending || isTyping}
+  placeholder={`Message ${character.name}...`}
+  inputRef={chatInputRef}
+  onGenerateMessage={handleGenerateUserMessage}
+  onRegenerateUserMessage={handleRegenerateUserMessage}
+  hasUserMessages={messages.some(m => m.role === 'user')}
+/>
 ```
 
-Update `handleRegenerate`:
+---
+
+## Part 3: Alternative Approach for Regeneration Instruction
+
+Instead of modifying the edge function, we can inject the instruction directly into the message history as a system-level hint. This keeps the edge function unchanged.
+
+**Modified approach in `handleRegenerate`:**
 ```typescript
-const handleRegenerate = async (id: string) => {
-  if (!sessionId || !character || !aiSettings) return;
+const handleRegenerate = async (id: string, instruction?: string) => {
+  if (!sessionId || !character || !aiSettings || isTyping) return;
   
   const messageIndex = messages.findIndex(m => m.id === id);
   if (messageIndex === -1) return;
   
   const targetMessage = messages[messageIndex];
   
-  // Delete this message and everything after it
   await deleteMessagesAfter.mutateAsync({
     sessionId,
     afterTimestamp: targetMessage.createdAt,
   });
   
-  // Get conversation up to (but not including) the deleted message
   const previousMessages = messages.slice(0, messageIndex);
   
-  // Build chat history
-  const chatHistory = previousMessages.map(m => ({
+  let chatHistory = previousMessages.map(m => ({
     role: m.role,
     content: m.content,
   }));
+  
+  // If instruction provided, add as a hint at the end
+  if (instruction) {
+    chatHistory.push({
+      role: 'system',
+      content: `[Regeneration guidance: ${instruction}]`,
+    });
+  }
   
   setIsTyping(true);
   
@@ -201,7 +406,6 @@ const handleRegenerate = async (id: string) => {
       title: 'Regeneration failed',
       description: errorMessage,
       variant: 'destructive',
-      action: <ToastAction altText="Retry" onClick={() => handleRegenerate(id)}>Retry</ToastAction>,
     });
   } finally {
     setIsTyping(false);
@@ -211,101 +415,114 @@ const handleRegenerate = async (id: string) => {
 
 ---
 
-## Part 3: Fix Character Editing
-
-### Problem Analysis
-The character edit dialog appears to be implemented correctly in `CharactersPage.tsx`. The issue is likely in the dropdown menu behavior - clicking "Edit" may trigger a page navigation due to the Play button overlay covering the dropdown.
-
-### Solution
-The CharacterCard has a Play button overlay that covers the entire card (`<button className="absolute inset-0">`) which might be capturing clicks before they reach the dropdown menu.
-
-**File: `src/components/characters/CharacterCard.tsx`**
-
-Change the Play button overlay to exclude the dropdown area:
-```typescript
-{/* Play button overlay - exclude top-right dropdown area */}
-<button
-  onClick={() => onPlay(character)}
-  className="absolute inset-0 top-10 flex items-center justify-center bg-primary/0 opacity-0 transition-all group-hover:bg-primary/10 group-hover:opacity-100"
->
-  ...
-</button>
-```
-
-Additionally, ensure the dropdown menu has proper z-index:
-```typescript
-<div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-```
-
-Also add `stopPropagation` to dropdown items:
-```typescript
-<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(character); }}>
-```
-
----
-
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/ChatPage.tsx` | Add edit dialog, update handlers, add imports |
-| `src/hooks/useChatSessions.ts` | Add `useDeleteMessagesAfter` hook |
-| `src/components/characters/CharacterCard.tsx` | Fix click event propagation |
+| `src/components/chat/ChatMessageBubble.tsx` | Add popover for regenerate with "Same intent" + custom input |
+| `src/components/chat/ChatInput.tsx` | Add Wand2 button with popover for message generation |
+| `src/pages/ChatPage.tsx` | Update handleRegenerate, add generation handlers, pass props |
 
 ---
 
-## New Imports for ChatPage.tsx
+## UI Layout
 
-```typescript
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+### Regenerate Popover (Bot Messages)
+
+```text
++---------------------------+
+| Same intent               |
++---------------------------+
+| [Custom instruction...] ⏎ |
++---------------------------+
+```
+
+### Generate Popover (Input Area)
+
+```text
++---------------------------+
+| ✨ Generate for me        |
++---------------------------+
+| ─── (separator) ───       |
+| Regenerate last message   |
++---------------------------+
+| Same intent               |
++---------------------------+
+| [Custom instruction...] ⏎ |
++---------------------------+
 ```
 
 ---
 
-## User Flow: Edit Message
+## Data Flow
 
-1. User hovers over any message
-2. Clicks "Edit" button
-3. Dialog opens with current message content
-4. User edits text
-5. Clicks "Save"
-6. Message updates in database
-7. UI shows "(edited)" label
+### Bot Regeneration with Instruction
 
-## User Flow: Regenerate
+```text
+1. User clicks Regenerate → Popover opens
+   ↓
+2. User selects "Same intent" OR types instruction + Enter
+   ↓
+3. Popover closes automatically
+   ↓
+4. Messages after target are deleted
+   ↓
+5. Chat history + optional instruction sent to AI
+   ↓
+6. New response generated and saved
+```
 
-1. User hovers over character message
-2. Clicks "Regenerate" button
-3. System deletes that message and any after it
-4. Loading indicator appears
-5. AI generates new response
-6. New message appears
+### User Message Generation
 
-## User Flow: Edit Character
+```text
+1. User clicks Wand2 button → Popover opens
+   ↓
+2. User clicks "Generate for me"
+   ↓
+3. AI generates suggested message based on context
+   ↓
+4. Generated text populates input field
+   ↓
+5. User can review/edit before sending
+   ↓
+6. User sends (Enter or click Send)
+```
 
-1. User hovers over character card
-2. Clicks three-dot menu
-3. Clicks "Edit"
-4. Dialog opens with character details
-5. User makes changes
-6. Clicks "Save Changes"
-7. Character updates
+### User Message Regeneration
+
+```text
+1. User clicks Wand2 → Popover (shows regenerate option if user has messages)
+   ↓
+2. User clicks "Same intent" or enters custom instruction
+   ↓
+3. AI regenerates based on last user message + instruction
+   ↓
+4. Regenerated text populates input field
+   ↓
+5. User sends → replaces original message in conversation
+```
 
 ---
 
-## Edge Cases
+## Technical Details
+
+### Popover Behavior
+- Closes on outside click (default Radix behavior)
+- Closes after selection/action
+- Minimal width (w-64 = 256px)
+- Proper z-index via bg-popover class
+
+### Loading States
+- Wand2 button shows spinner when generating
+- Input and buttons disabled during generation
+- Regenerate button shows normal state (parent handles loading)
+
+### Edge Cases
 
 | Scenario | Handling |
 |----------|----------|
-| Edit empty message | Prevent save if content is empty |
-| Regenerate while typing | Disable button during AI generation |
-| Network error during edit | Toast with retry action |
-| Delete last message | Regenerate still works (empty history) |
-
+| Empty conversation | "Generate for me" uses character intro as context |
+| No user messages yet | "Regenerate last message" section hidden |
+| Generation fails | Error logged, popover stays open for retry |
+| Very long generated text | Textarea auto-expands (existing behavior) |
+| User edits generated text | Normal flow - user has full control |
