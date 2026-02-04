@@ -152,6 +152,16 @@ export default function ChatPage() {
     }
   }, [sessions, loadingSessions, sessionId, character, handleNewSession]);
 
+  // Initialize persona from session when session loads/changes
+  useEffect(() => {
+    if (!sessions || !sessionId) return;
+    
+    const currentSession = sessions.find(s => s.id === sessionId);
+    if (currentSession) {
+      setActivePersonaId(currentSession.personaId);
+    }
+  }, [sessionId, sessions]);
+
   // Smooth scroll to bottom on new messages
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -173,6 +183,19 @@ export default function ChatPage() {
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
     setShowScrollButton(!isNearBottom);
   }, []);
+
+  // Handle persona change with persistence
+  const handlePersonaChange = useCallback((personaId: string | undefined) => {
+    setActivePersonaId(personaId);
+    
+    // Persist to database if we have an active session
+    if (sessionId) {
+      updateSession.mutate({ 
+        id: sessionId, 
+        personaId: personaId ?? null 
+      });
+    }
+  }, [sessionId, updateSession]);
 
   // Handle session switch
   const handleSelectSession = (id: string) => {
@@ -558,14 +581,14 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-popover">
-              <DropdownMenuItem onClick={() => setActivePersonaId(undefined)}>
+              <DropdownMenuItem onClick={() => handlePersonaChange(undefined)}>
                 <User className="mr-2 h-4 w-4 text-muted-foreground" />
                 No Persona (You)
               </DropdownMenuItem>
               {personas?.map(persona => (
                 <DropdownMenuItem
                   key={persona.id}
-                  onClick={() => setActivePersonaId(persona.id)}
+                  onClick={() => handlePersonaChange(persona.id)}
                 >
                   <User className="mr-2 h-4 w-4" />
                   {persona.name}

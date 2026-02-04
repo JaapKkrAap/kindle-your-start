@@ -201,10 +201,20 @@ export function useUpdateSession() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }): Promise<void> => {
+    mutationFn: async ({ id, title, personaId }: { 
+      id: string; 
+      title?: string; 
+      personaId?: string | null;
+    }): Promise<void> => {
+      const updateData: Record<string, unknown> = {};
+      if (title !== undefined) updateData.title = title;
+      if (personaId !== undefined) updateData.persona_id = personaId;
+      
+      if (Object.keys(updateData).length === 0) return;
+      
       const { error } = await supabase
         .from('chat_sessions')
-        .update({ title })
+        .update(updateData)
         .eq('id', id);
       
       if (error) throw error;
