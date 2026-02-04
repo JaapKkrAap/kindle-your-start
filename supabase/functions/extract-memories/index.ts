@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,7 +127,7 @@ If nothing worth remembering, respond with empty array: []`;
         "Authorization": `Bearer ${openrouterKey}`,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3-haiku-20240307",
+        model: "anthropic/claude-3-haiku",
         messages: [
           { role: "user", content: extractionPrompt }
         ],
