@@ -1,417 +1,173 @@
 
-# Bot Regeneration Enhancement & User Message Generation
+
+# Chat UI Redesign - Gaming/Fantasy Style
 
 ## Overview
 
-This plan implements two major enhancements:
-1. **Bot Regeneration Popover** - Extend the regenerate button with options for "Same intent" or custom instruction
-2. **User Message Generation Button** - New button in chat input for AI-assisted message creation
+This plan transforms the chat interface to match the reference design featuring a dark, immersive gaming aesthetic with lime/green accents, prominent character avatars, and polished message bubbles.
+
+## Key Design Changes
+
+### Visual Direction (from reference)
+
+| Element | Current | New Design |
+|---------|---------|------------|
+| Color scheme | Purple/pink mystic | Dark slate + lime green accent |
+| User messages | Subtle accent/20 | Bright lime green bubbles |
+| Character messages | Muted background | Dark semi-transparent with subtle border |
+| Avatars | Small 10x10 | Larger 12x12, more prominent |
+| Message layout | Standard chat | Character name above, avatar beside bubble |
+| Input area | Multi-button | Clean rounded input with single send button |
+| Background | Gradient purple | Deep dark with optional character portrait |
+| Timestamps | Inline with name | Inside bubble, right-aligned |
+| System messages | Centered pill | Centered with subtle styling |
+| Quick actions | Tone buttons above | Action chips below messages (optional) |
 
 ---
 
-## Part 1: Bot Regeneration Enhancement
+## Part 1: Update Color Theme
 
-### Current State
-The regenerate button (in `ChatMessageBubble.tsx`) is a simple button that calls `onRegenerate(id)` directly. The regeneration logic (in `ChatPage.tsx`) deletes messages from that point and re-generates.
+### File: `src/index.css`
 
-### New Behavior
-Replace the button with a popover containing:
-- **"Same intent"** - Current default behavior
-- **Text input** for custom instruction (e.g., "more concise", "add code examples")
+Update CSS variables for the new gaming aesthetic:
 
-### Implementation
-
-**File: `src/components/chat/ChatMessageBubble.tsx`**
-
-Update the `onRegenerate` prop signature:
-```typescript
-onRegenerate?: (id: string, instruction?: string) => void;
-```
-
-Replace the regenerate button with a popover:
-```typescript
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-```
-
-New JSX for regenerate action:
-```typescript
-{!isUser && onRegenerate && (
-  <Popover>
-    <PopoverTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-        <RefreshCw className="h-3 w-3 mr-1" />
-        Regenerate
-      </Button>
-    </PopoverTrigger>
-    <PopoverContent className="w-64 p-3" align="start">
-      <div className="space-y-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-xs h-8"
-          onClick={() => onRegenerate(message.id)}
-        >
-          Same intent
-        </Button>
-        <div className="relative">
-          <Input
-            placeholder="Custom instruction..."
-            className="h-8 text-xs pr-8"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                onRegenerate(message.id, e.currentTarget.value.trim());
-              }
-            }}
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-            Enter
-          </span>
-        </div>
-      </div>
-    </PopoverContent>
-  </Popover>
-)}
-```
-
-**File: `src/pages/ChatPage.tsx`**
-
-Update `handleRegenerate` signature:
-```typescript
-const handleRegenerate = async (id: string, instruction?: string) => {
-```
-
-Pass instruction to AI call - modify the messages before sending:
-```typescript
-const chatHistory = previousMessages.map(m => ({
-  role: m.role,
-  content: m.content,
-}));
-
-// Add regeneration instruction if provided
-if (instruction) {
-  chatHistory.push({ 
-    role: 'user', 
-    content: `[Regeneration instruction: ${instruction}]` 
-  });
+```css
+:root {
+  --background: 220 20% 10%;           /* Deep dark blue-gray */
+  --foreground: 0 0% 95%;              /* Near white text */
+  
+  --card: 220 18% 13%;                 /* Slightly lighter cards */
+  --card-foreground: 0 0% 95%;
+  
+  --muted: 220 15% 18%;                /* Muted backgrounds */
+  --muted-foreground: 220 10% 55%;     /* Muted text */
+  
+  --primary: 82 85% 55%;               /* Lime green accent */
+  --primary-foreground: 220 20% 10%;   /* Dark text on lime */
+  
+  --accent: 220 15% 25%;               /* Dark accent for char bubbles */
+  --accent-foreground: 0 0% 95%;
+  
+  --border: 220 15% 20%;
 }
 ```
 
-**File: `supabase/functions/chat/index.ts`**
+Add new utility classes:
+- `.bubble-user` - Lime green gradient background
+- `.bubble-character` - Dark semi-transparent with subtle border
+- `.bg-chat` - Chat area background with subtle pattern
 
-Add support for regeneration instructions in system prompt:
-```typescript
-interface ChatRequest {
-  // ...existing fields
-  regenerateInstruction?: string;
-}
+---
+
+## Part 2: Redesign Message Bubbles
+
+### File: `src/components/chat/ChatMessageBubble.tsx`
+
+**Layout Changes:**
+1. Larger avatars (48x48px / h-12 w-12)
+2. Avatar positioned at top of message area
+3. Name displayed above the bubble
+4. Timestamp inside bubble, right-aligned
+5. More rounded bubbles (rounded-2xl)
+6. User messages: lime green with dark text
+7. Character messages: dark with light text
+
+**New Structure:**
+```text
+[Avatar]  Character Name
+          +---------------------------+
+          | Message content...        |
+          |               12:00       |
+          +---------------------------+
+          [Action buttons on hover]
 ```
 
-Modify `buildSystemPrompt` to include instruction handling:
-```typescript
-if (req.regenerateInstruction) {
-  prompt += `\n\n<regeneration_guidance>
-For this response, apply the following adjustment: ${req.regenerateInstruction}
-</regeneration_guidance>`;
-}
+**User messages (right-aligned):**
+```text
+                        Your Name  [Avatar]
+          +---------------------------+
+          | Message content...        |
+          |               12:00       |
+          +---------------------------+
+```
+
+**Key styling:**
+- User bubble: `bg-[#9ACD32]` or `bg-lime-400` with `text-slate-900`
+- Character bubble: `bg-slate-800/80` with `text-white` and subtle border
+- Both: `rounded-2xl px-4 py-3`
+- Timestamp: `text-[10px] opacity-70` inside bubble
+
+---
+
+## Part 3: Redesign System Messages
+
+Keep centered but styled like reference:
+```tsx
+<div className="flex justify-center py-3">
+  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <span className="h-px w-8 bg-border" />
+    <span>{message.content}</span>
+    <span className="h-px w-8 bg-border" />
+  </div>
+</div>
 ```
 
 ---
 
-## Part 2: User Message Generation Button
+## Part 4: Simplify Chat Input
 
-### New Functionality
-Add a button (Wand2 icon) next to the input that opens a popover with:
-1. **"Generate for me"** - AI creates a suggested user message based on conversation
-2. **"Regenerate last message"** - Only visible after user has sent at least one message
+### File: `src/components/chat/ChatInput.tsx`
 
-### Implementation
+**Redesign for cleaner look:**
+1. Single rounded input field (full-width, pill-shaped)
+2. Send button as circular icon on right side
+3. Wand/Generate button as small icon on left
+4. Remove visible tone buttons (move to popover)
+5. Darker background matching theme
 
-**File: `src/components/chat/ChatInput.tsx`**
-
-Update props interface:
-```typescript
-interface ChatInputProps {
-  onSend: (message: string) => void;
-  isLoading?: boolean;
-  placeholder?: string;
-  inputRef?: React.RefObject<HTMLTextAreaElement>;
-  onGenerateMessage?: () => Promise<string>;
-  onRegenerateUserMessage?: (instruction?: string) => Promise<string>;
-  hasUserMessages?: boolean;
-}
+**New Layout:**
+```text
++---------------------------------------------------+
+| [✨] [                                    ] [→]   |
++---------------------------------------------------+
 ```
 
-Add new imports:
-```typescript
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-import { Wand2, Loader2 } from 'lucide-react';
-```
-
-Add state for generation:
-```typescript
-const [isGenerating, setIsGenerating] = useState(false);
-const [showGeneratePopover, setShowGeneratePopover] = useState(false);
-```
-
-Add generate button UI (between Sparkles button and textarea):
-```typescript
-<Popover open={showGeneratePopover} onOpenChange={setShowGeneratePopover}>
-  <PopoverTrigger asChild>
-    <Button
-      variant="ghost"
-      size="icon"
-      className="shrink-0"
-      disabled={isLoading || isGenerating}
-    >
-      {isGenerating ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
-      ) : (
-        <Wand2 className="h-5 w-5" />
-      )}
-    </Button>
-  </PopoverTrigger>
-  <PopoverContent className="w-64 p-3" align="start">
-    <div className="space-y-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full justify-start text-xs h-8"
-        onClick={handleGenerateMessage}
-        disabled={isGenerating}
-      >
-        <Sparkles className="h-3 w-3 mr-2" />
-        Generate for me
-      </Button>
-      
-      {hasUserMessages && (
-        <>
-          <div className="border-t border-border/50 my-2" />
-          <p className="text-[10px] text-muted-foreground px-2">Regenerate last message</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-xs h-8"
-            onClick={() => handleRegenerateUserMessage()}
-            disabled={isGenerating}
-          >
-            Same intent
-          </Button>
-          <div className="relative">
-            <Input
-              placeholder="Custom instruction..."
-              className="h-8 text-xs pr-8"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  handleRegenerateUserMessage(e.currentTarget.value.trim());
-                }
-              }}
-            />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-              Enter
-            </span>
-          </div>
-        </>
-      )}
-    </div>
-  </PopoverContent>
-</Popover>
-```
-
-Add handler functions:
-```typescript
-const handleGenerateMessage = async () => {
-  if (!onGenerateMessage) return;
-  setIsGenerating(true);
-  try {
-    const generated = await onGenerateMessage();
-    setMessage(generated);
-    setShowGeneratePopover(false);
-    textareaRef.current?.focus();
-  } catch (error) {
-    console.error('Failed to generate message:', error);
-  } finally {
-    setIsGenerating(false);
-  }
-};
-
-const handleRegenerateUserMessage = async (instruction?: string) => {
-  if (!onRegenerateUserMessage) return;
-  setIsGenerating(true);
-  try {
-    const generated = await onRegenerateUserMessage(instruction);
-    setMessage(generated);
-    setShowGeneratePopover(false);
-    textareaRef.current?.focus();
-  } catch (error) {
-    console.error('Failed to regenerate message:', error);
-  } finally {
-    setIsGenerating(false);
-  }
-};
-```
-
-**File: `src/pages/ChatPage.tsx`**
-
-Add new handler functions:
-```typescript
-const handleGenerateUserMessage = async (): Promise<string> => {
-  if (!character || !aiSettings) throw new Error('Missing context');
-  
-  const chatHistory = messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }));
-  
-  // Request AI to generate a user message suggestion
-  const response = await sendChatMessage({
-    messages: [
-      ...chatHistory,
-      { 
-        role: 'system', 
-        content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
-Output ONLY the suggested message text, no meta-commentary or quotes.
-Keep it natural and in-character for the user persona.`
-      }
-    ],
-    character,
-    persona: activePersona,
-    memories: memories?.map(m => m.content) ?? [],
-    canonEvents: canonEvents?.map(e => ({
-      title: e.title,
-      description: e.description,
-    })) ?? [],
-    settings: aiSettings,
-  });
-  
-  return response.content;
-};
-
-const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
-  if (!character || !aiSettings) throw new Error('Missing context');
-  
-  // Find the last user message
-  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-  if (!lastUserMessage) throw new Error('No user message to regenerate');
-  
-  const chatHistory = messages
-    .slice(0, messages.indexOf(lastUserMessage))
-    .map(m => ({ role: m.role, content: m.content }));
-  
-  const instructionText = instruction 
-    ? `Apply this adjustment: ${instruction}` 
-    : 'Generate a similar message with the same intent';
-  
-  const response = await sendChatMessage({
-    messages: [
-      ...chatHistory,
-      { 
-        role: 'system', 
-        content: `The user previously wrote: "${lastUserMessage.content}"
-        
-${instructionText}
-
-Output ONLY the regenerated message text, no meta-commentary or quotes.`
-      }
-    ],
-    character,
-    persona: activePersona,
-    memories: memories?.map(m => m.content) ?? [],
-    canonEvents: canonEvents?.map(e => ({
-      title: e.title,
-      description: e.description,
-    })) ?? [],
-    settings: aiSettings,
-  });
-  
-  return response.content;
-};
-```
-
-Update ChatInput usage:
-```typescript
-<ChatInput
-  onSend={handleSend}
-  isLoading={addMessage.isPending || isTyping}
-  placeholder={`Message ${character.name}...`}
-  inputRef={chatInputRef}
-  onGenerateMessage={handleGenerateUserMessage}
-  onRegenerateUserMessage={handleRegenerateUserMessage}
-  hasUserMessages={messages.some(m => m.role === 'user')}
-/>
-```
+**Styling:**
+- Input container: `bg-slate-800/50 rounded-full px-4`
+- Input field: Transparent, no visible border
+- Send button: `bg-lime-400 text-slate-900 rounded-full`
 
 ---
 
-## Part 3: Alternative Approach for Regeneration Instruction
+## Part 5: Update Chat Page Header
 
-Instead of modifying the edge function, we can inject the instruction directly into the message history as a system-level hint. This keeps the edge function unchanged.
+### File: `src/pages/ChatPage.tsx`
 
-**Modified approach in `handleRegenerate`:**
-```typescript
-const handleRegenerate = async (id: string, instruction?: string) => {
-  if (!sessionId || !character || !aiSettings || isTyping) return;
-  
-  const messageIndex = messages.findIndex(m => m.id === id);
-  if (messageIndex === -1) return;
-  
-  const targetMessage = messages[messageIndex];
-  
-  await deleteMessagesAfter.mutateAsync({
-    sessionId,
-    afterTimestamp: targetMessage.createdAt,
-  });
-  
-  const previousMessages = messages.slice(0, messageIndex);
-  
-  let chatHistory = previousMessages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }));
-  
-  // If instruction provided, add as a hint at the end
-  if (instruction) {
-    chatHistory.push({
-      role: 'system',
-      content: `[Regeneration guidance: ${instruction}]`,
-    });
-  }
-  
-  setIsTyping(true);
-  
-  try {
-    const response = await sendChatMessage({
-      messages: chatHistory,
-      character,
-      persona: activePersona,
-      memories: memories?.map(m => m.content) ?? [],
-      canonEvents: canonEvents?.map(e => ({
-        title: e.title,
-        description: e.description,
-      })) ?? [],
-      settings: aiSettings,
-    });
-    
-    await addMessage.mutateAsync({
-      sessionId,
-      characterId: character.id,
-      personaId: activePersonaId,
-      role: 'character',
-      content: response.content,
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate';
-    toast({
-      title: 'Regeneration failed',
-      description: errorMessage,
-      variant: 'destructive',
-    });
-  } finally {
-    setIsTyping(false);
-  }
-};
+**Minimal header with character info:**
+1. Larger character avatar (56x56px)
+2. Character name prominent
+3. Status indicator (optional)
+4. Back button more subtle
+5. Session/persona pickers as icons
+
+**Optional: Background character portrait**
+If character has avatar, show large semi-transparent version as background in chat area (like left screen in reference).
+
+---
+
+## Part 6: Action Buttons Redesign
+
+**Message hover actions (subtle):**
+- Smaller, icon-only by default
+- Text appears on hover
+- Positioned below message, not beside
+
+**Quick action chips (optional feature):**
+Below messages, show contextual action buttons like:
+```text
+Strike [Frostblade]  |  Execute [Rain of Blows]  |  Ability [Thunderous Shout]
 ```
+These would be generated based on context and displayed as clickable chips.
 
 ---
 
@@ -419,110 +175,111 @@ const handleRegenerate = async (id: string, instruction?: string) => {
 
 | File | Changes |
 |------|---------|
-| `src/components/chat/ChatMessageBubble.tsx` | Add popover for regenerate with "Same intent" + custom input |
-| `src/components/chat/ChatInput.tsx` | Add Wand2 button with popover for message generation |
-| `src/pages/ChatPage.tsx` | Update handleRegenerate, add generation handlers, pass props |
+| `src/index.css` | Update color palette, add new bubble classes |
+| `src/components/chat/ChatMessageBubble.tsx` | Complete redesign of message layout |
+| `src/components/chat/ChatInput.tsx` | Simplify to rounded pill input |
+| `src/components/chat/TypingIndicator.tsx` | Update to match new style |
+| `src/pages/ChatPage.tsx` | Update header, add optional background portrait |
+| `tailwind.config.ts` | Add lime color if needed |
 
 ---
 
-## UI Layout
+## Visual Comparison
 
-### Regenerate Popover (Bot Messages)
-
+**Current Design:**
 ```text
-+---------------------------+
-| Same intent               |
-+---------------------------+
-| [Custom instruction...] ⏎ |
-+---------------------------+
++------------------------------------------+
+| [<] [Avatar] Character Name              |
+|      Traits • Traits                     |
++------------------------------------------+
+| [Avatar] Name                    12:00   |
+|          +-------------------+           |
+|          | Message content   |           |
+|          +-------------------+           |
+|          [Canon] [Edit] [Regen]          |
++------------------------------------------+
+| [✨] [Wand] [Input area...    ] [Send]   |
+| Enter to send | Shift+Enter new line     |
++------------------------------------------+
 ```
 
-### Generate Popover (Input Area)
-
+**New Design (matching reference):**
 ```text
-+---------------------------+
-| ✨ Generate for me        |
-+---------------------------+
-| ─── (separator) ───       |
-| Regenerate last message   |
-+---------------------------+
-| Same intent               |
-+---------------------------+
-| [Custom instruction...] ⏎ |
-+---------------------------+
-```
-
----
-
-## Data Flow
-
-### Bot Regeneration with Instruction
-
-```text
-1. User clicks Regenerate → Popover opens
-   ↓
-2. User selects "Same intent" OR types instruction + Enter
-   ↓
-3. Popover closes automatically
-   ↓
-4. Messages after target are deleted
-   ↓
-5. Chat history + optional instruction sent to AI
-   ↓
-6. New response generated and saved
-```
-
-### User Message Generation
-
-```text
-1. User clicks Wand2 button → Popover opens
-   ↓
-2. User clicks "Generate for me"
-   ↓
-3. AI generates suggested message based on context
-   ↓
-4. Generated text populates input field
-   ↓
-5. User can review/edit before sending
-   ↓
-6. User sends (Enter or click Send)
-```
-
-### User Message Regeneration
-
-```text
-1. User clicks Wand2 → Popover (shows regenerate option if user has messages)
-   ↓
-2. User clicks "Same intent" or enters custom instruction
-   ↓
-3. AI regenerates based on last user message + instruction
-   ↓
-4. Regenerated text populates input field
-   ↓
-5. User sends → replaces original message in conversation
++------------------------------------------+
+| [<]     [Avatar]                     [⋮] |
+|         Character Name                   |
++------------------------------------------+
+|                                          |
+|       [Avatar] Character Name            |
+|       +-------------------------+        |
+|       | Message content...      |        |
+|       |              12:00      |        |
+|       +-------------------------+        |
+|                                          |
+|                  Your Name [Avatar]      |
+|       +-------------------------+        |
+|       | Your message in lime    |        |
+|       |              12:00      |        |
+|       +-------------------------+        |
+|                                          |
++------------------------------------------+
+| +-------------------------------------+  |
+| | [✨]  Type a message...        [→] |  |
+| +-------------------------------------+  |
++------------------------------------------+
 ```
 
 ---
 
-## Technical Details
+## Color Palette
 
-### Popover Behavior
-- Closes on outside click (default Radix behavior)
-- Closes after selection/action
-- Minimal width (w-64 = 256px)
-- Proper z-index via bg-popover class
+| Element | Color | HSL/Hex |
+|---------|-------|---------|
+| Background | Deep slate | `hsl(220 20% 10%)` / `#161b22` |
+| User bubble | Lime green | `hsl(82 85% 55%)` / `#9ACD32` or `#a3e635` |
+| Character bubble | Dark slate | `hsl(220 15% 20%)` / `#2d3748` |
+| Text (on dark) | Off-white | `hsl(0 0% 95%)` / `#f2f2f2` |
+| Text (on lime) | Dark | `hsl(220 20% 12%)` / `#1a1f2e` |
+| Muted text | Slate gray | `hsl(220 10% 55%)` / `#8b8f97` |
+| Border | Subtle | `hsl(220 15% 25%)` |
 
-### Loading States
-- Wand2 button shows spinner when generating
-- Input and buttons disabled during generation
-- Regenerate button shows normal state (parent handles loading)
+---
 
-### Edge Cases
+## Animation & Polish
 
-| Scenario | Handling |
-|----------|----------|
-| Empty conversation | "Generate for me" uses character intro as context |
-| No user messages yet | "Regenerate last message" section hidden |
-| Generation fails | Error logged, popover stays open for retry |
-| Very long generated text | Textarea auto-expands (existing behavior) |
-| User edits generated text | Normal flow - user has full control |
+1. Message entrance: Slide up with fade
+2. Hover on messages: Subtle glow effect
+3. Send button: Slight scale on press
+4. Typing indicator: Dots with staggered pulse
+5. Input focus: Subtle lime outline
+
+---
+
+## Mobile Considerations
+
+- Bubbles take 90% width max
+- Avatars reduce to 40px on mobile
+- Input stays fixed at bottom
+- Touch-friendly action buttons
+- Swipe gestures for actions (optional)
+
+---
+
+## Implementation Notes
+
+### Preserve Functionality
+All existing features remain:
+- Canon marking
+- Message editing
+- Regeneration with instructions
+- User message generation
+- Session switching
+- Persona selection
+
+### Gradual Enhancement
+Can implement in phases:
+1. Phase 1: Colors and basic bubble styling
+2. Phase 2: Input redesign
+3. Phase 3: Header and background
+4. Phase 4: Action chips and polish
+
