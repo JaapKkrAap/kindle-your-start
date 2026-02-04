@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useChatSessions, useDeleteSession } from '@/hooks/useChatSessions';
 import { useCharacters } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,11 @@ export default function SessionsPage() {
         title: 'Error',
         description: 'Failed to delete session',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={handleDelete}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };

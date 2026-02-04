@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { X, Plus } from 'lucide-react';
 import {
   Dialog,
@@ -55,6 +56,8 @@ export function CharacterFormDialog({
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<z.infer<typeof characterSchema>>({
     resolver: zodResolver(characterSchema),
     defaultValues: {
@@ -66,6 +69,21 @@ export function CharacterFormDialog({
       firstMessage: initialData?.firstMessage ?? '',
     },
   });
+
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (open) {
+      reset({
+        name: initialData?.name ?? '',
+        avatarUrl: initialData?.avatarUrl ?? '',
+        backstory: initialData?.backstory ?? '',
+        speechStyle: initialData?.speechStyle ?? '',
+        behavioralBoundaries: initialData?.behavioralBoundaries ?? '',
+        firstMessage: initialData?.firstMessage ?? '',
+      });
+      setTraits(initialData?.personalityTraits ?? []);
+    }
+  }, [open, initialData, reset]);
 
   const addTrait = (trait: string) => {
     const trimmed = trait.trim();
@@ -116,15 +134,26 @@ export function CharacterFormDialog({
               )}
             </div>
 
-            {/* Avatar URL */}
+            {/* Avatar Upload */}
             <div className="space-y-2">
-              <Label htmlFor="avatarUrl">Portrait URL (optional)</Label>
-              <Input
-                id="avatarUrl"
-                {...register('avatarUrl')}
-                placeholder="https://example.com/portrait.jpg"
-                className="bg-muted/50"
-              />
+              <Label>Character Portrait (optional)</Label>
+              <div className="flex items-center gap-4">
+                <AvatarUpload
+                  value={watch('avatarUrl')}
+                  onChange={(url) => setValue('avatarUrl', url ?? '')}
+                  placeholder={watch('name')?.charAt(0)?.toUpperCase() ?? 'C'}
+                />
+                <div className="flex-1 space-y-1">
+                  <Input
+                    {...register('avatarUrl')}
+                    placeholder="Or paste image URL..."
+                    className="bg-muted/50"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload an image or paste a URL
+                  </p>
+                </div>
+              </div>
               {errors.avatarUrl && (
                 <p className="text-sm text-destructive">{errors.avatarUrl.message}</p>
               )}

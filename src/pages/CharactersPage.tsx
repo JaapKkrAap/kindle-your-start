@@ -7,6 +7,7 @@ import { CharacterCard } from '@/components/characters/CharacterCard';
 import { CharacterFormDialog } from '@/components/characters/CharacterFormDialog';
 import { useCharacters, useCreateCharacter, useUpdateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import type { Character, CharacterFormData } from '@/types';
 import {
   AlertDialog,
@@ -44,6 +45,11 @@ export default function CharactersPage() {
         title: 'Error',
         description: 'Failed to create character',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={() => handleCreate(data)}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };
@@ -76,10 +82,14 @@ export default function CharactersPage() {
         title: 'Error',
         description: 'Failed to duplicate character',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={() => handleDuplicate(character)}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };
-
   const handleDelete = async () => {
     if (!deletingCharacter) return;
     try {
@@ -94,6 +104,11 @@ export default function CharactersPage() {
         title: 'Error',
         description: 'Failed to delete character',
         variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={handleDelete}>
+            Retry
+          </ToastAction>
+        ),
       });
     }
   };
@@ -180,6 +195,11 @@ export default function CharactersPage() {
                 title: 'Error',
                 description: 'Failed to update character',
                 variant: 'destructive',
+                action: (
+                  <ToastAction altText="Retry" onClick={() => updateCharacter.mutate({ id: editingCharacter.id, data })}>
+                    Retry
+                  </ToastAction>
+                ),
               });
             }
           }}
