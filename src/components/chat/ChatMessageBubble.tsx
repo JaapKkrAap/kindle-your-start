@@ -17,6 +17,16 @@ interface ChatMessageBubbleProps {
   onRegenerate?: (id: string, instruction?: string) => void;
 }
 
+// Generate consistent color from name
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 45%)`;
+}
+
 export function ChatMessageBubble({
   message,
   character,
@@ -33,10 +43,12 @@ export function ChatMessageBubble({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex justify-center py-2"
+        className="flex justify-center py-4"
       >
-        <div className="text-xs text-muted-foreground italic px-4 py-2 rounded-full bg-muted/30">
-          {message.content}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px w-8 bg-border" />
+          <span className="italic">{message.content}</span>
+          <span className="h-px w-8 bg-border" />
         </div>
       </motion.div>
     );
@@ -57,7 +69,7 @@ export function ChatMessageBubble({
     return parts.map((part, i) => {
       if (part.startsWith('*') && part.endsWith('*')) {
         return (
-          <em key={i} className="text-muted-foreground not-italic italic">
+          <em key={i} className="text-muted-foreground">
             {part.slice(1, -1)}
           </em>
         );
@@ -68,79 +80,87 @@ export function ChatMessageBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
       className={cn(
-        'group flex gap-3 px-4 py-3',
-        isUser ? 'flex-row-reverse' : '',
-        message.isCanon && 'canon-marker'
+        'group flex gap-3 px-4 py-2',
+        isUser ? 'flex-row-reverse' : ''
       )}
     >
       {/* Avatar */}
-      <Avatar className={cn(
-        'h-10 w-10 shrink-0 border-2',
-        isUser ? 'border-accent/50' : 'border-primary/50'
-      )}>
-        <AvatarImage src={avatarUrl} alt={displayName} />
-        <AvatarFallback className={cn(
-          'font-serif',
-          isUser ? 'bg-accent/20' : 'bg-primary/20'
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <Avatar className={cn(
+          'h-11 w-11 border-2',
+          isUser ? 'border-primary/60' : 'border-accent'
         )}>
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+          <AvatarImage src={avatarUrl} alt={displayName} />
+          <AvatarFallback 
+            className="text-sm font-medium text-white"
+            style={{ backgroundColor: getAvatarColor(displayName) }}
+          >
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+      </div>
 
       {/* Message Content */}
-      <div className={cn('flex-1 space-y-1', isUser ? 'text-right' : '')}>
-        <div className={cn('flex items-center gap-2', isUser ? 'justify-end' : '')}>
-          <span className="font-display text-sm font-medium text-foreground">
+      <div className={cn('flex-1 max-w-[80%]', isUser ? 'flex flex-col items-end' : '')}>
+        {/* Name */}
+        <div className={cn(
+          'flex items-center gap-2 mb-1 px-1',
+          isUser ? 'flex-row-reverse' : ''
+        )}>
+          <span className="text-sm font-medium text-foreground">
             {displayName}
           </span>
-          <span className="text-xs text-muted-foreground">
-            {formatTime(message.createdAt)}
-          </span>
-          {message.editedAt && (
-            <span className="text-xs text-muted-foreground/70">(edited)</span>
-          )}
           {message.isCanon && (
             <BookMarked className="h-3 w-3 text-primary" />
           )}
         </div>
 
+        {/* Bubble */}
         <div
           className={cn(
-            'prose-roleplay rounded-lg px-4 py-3 inline-block max-w-[85%]',
-            isUser
-              ? 'bg-accent/20 text-left ml-auto'
-              : 'bg-muted/50 text-left'
+            'prose-roleplay rounded-2xl px-4 py-3 relative',
+            isUser ? 'bubble-user' : 'bubble-character',
+            message.isCanon && !isUser && 'border-l-2 border-l-primary'
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
             {renderContent(message.content)}
           </p>
+          
+          {/* Timestamp inside bubble */}
+          <div className={cn(
+            'flex items-center gap-1 mt-2 text-[10px]',
+            isUser ? 'text-primary-foreground/60 justify-end' : 'text-muted-foreground justify-end'
+          )}>
+            {message.editedAt && <span>(edited)</span>}
+            <span>{formatTime(message.createdAt)}</span>
+          </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions - below bubble */}
         <div
           className={cn(
-            'flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity',
-            isUser ? 'justify-end' : ''
+            'flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1',
+            isUser ? 'flex-row-reverse' : ''
           )}
         >
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
             onClick={() => onToggleCanon(message.id, !message.isCanon)}
           >
             <BookMarked className={cn('h-3 w-3 mr-1', message.isCanon && 'text-primary')} />
-            {message.isCanon ? 'Canon' : 'Mark Canon'}
+            {message.isCanon ? 'Canon' : 'Canon'}
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
             onClick={() => onEdit(message.id)}
           >
             <Edit className="h-3 w-3 mr-1" />
@@ -178,13 +198,17 @@ function RegeneratePopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+        >
           <RefreshCw className="h-3 w-3 mr-1" />
-          Regenerate
+          Redo
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3" align="start">
-        <div className="space-y-2">
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="space-y-1">
           <Button
             variant="ghost"
             size="sm"
@@ -206,7 +230,7 @@ function RegeneratePopover({
               }}
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-              Enter
+              ↵
             </span>
           </div>
         </div>

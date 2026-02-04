@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Sparkles, Wand2, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Wand2, Loader2, Sparkles } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -16,13 +15,6 @@ interface ChatInputProps {
   hasUserMessages?: boolean;
 }
 
-const TONE_BUTTONS = [
-  { label: 'More dramatic', value: '[Tone: more dramatic]' },
-  { label: 'Slow down', value: '[Pace: slower]' },
-  { label: 'Be gentle', value: '[Tone: gentle]' },
-  { label: 'Get intense', value: '[Tone: intense]' },
-];
-
 export function ChatInput({ 
   onSend, 
   isLoading, 
@@ -33,7 +25,6 @@ export function ChatInput({
   hasUserMessages 
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
-  const [showToneButtons, setShowToneButtons] = useState(false);
   const [showGeneratePopover, setShowGeneratePopover] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [customInstruction, setCustomInstruction] = useState('');
@@ -44,7 +35,7 @@ export function ChatInput({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [message, textareaRef]);
 
@@ -52,25 +43,14 @@ export function ChatInput({
     if (message.trim() && !isLoading) {
       onSend(message.trim());
       setMessage('');
-      setShowToneButtons(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Enter to send, Shift+Enter for new line
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-    // Escape to close tone buttons
-    if (e.key === 'Escape' && showToneButtons) {
-      setShowToneButtons(false);
-    }
-  };
-
-  const appendTone = (tone: string) => {
-    setMessage(prev => `${tone} ${prev}`.trim());
-    textareaRef.current?.focus();
   };
 
   const handleGenerateMessage = async () => {
@@ -105,42 +85,9 @@ export function ChatInput({
   };
 
   return (
-    <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm p-4">
-      {/* Tone buttons */}
-      <AnimatePresence>
-        {showToneButtons && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex flex-wrap gap-2 mb-3"
-          >
-            {TONE_BUTTONS.map(btn => (
-              <Button
-                key={btn.label}
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 bg-muted/50 hover:bg-primary/20 hover:border-primary/50"
-                onClick={() => appendTone(btn.value)}
-              >
-                {btn.label}
-              </Button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex items-end gap-2">
-        {/* Tone toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`shrink-0 ${showToneButtons ? 'text-primary' : ''}`}
-          onClick={() => setShowToneButtons(!showToneButtons)}
-        >
-          <Sparkles className="h-5 w-5" />
-        </Button>
-
+    <div className="p-4 bg-background/60 backdrop-blur-sm">
+      {/* Pill-shaped input container */}
+      <div className="pill-input flex items-end gap-2 px-3 py-2">
         {/* Generate message button */}
         {onGenerateMessage && (
           <Popover open={showGeneratePopover} onOpenChange={setShowGeneratePopover}>
@@ -148,18 +95,18 @@ export function ChatInput({
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0"
+                className="shrink-0 h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
                 disabled={isLoading || isGenerating}
               >
                 {isGenerating ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Wand2 className="h-5 w-5" />
+                  <Wand2 className="h-4 w-4" />
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" align="start">
-              <div className="space-y-2">
+            <PopoverContent className="w-56 p-2" align="start">
+              <div className="space-y-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -174,7 +121,7 @@ export function ChatInput({
                 {hasUserMessages && onRegenerateUserMessage && (
                   <>
                     <div className="border-t border-border/50 my-2" />
-                    <p className="text-[10px] text-muted-foreground px-2">Regenerate last message</p>
+                    <p className="text-[10px] text-muted-foreground px-2 py-1">Redo last message</p>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -197,7 +144,7 @@ export function ChatInput({
                         }}
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                        Enter
+                        ↵
                       </span>
                     </div>
                   </>
@@ -208,36 +155,37 @@ export function ChatInput({
         )}
 
         {/* Input */}
-        <div className="flex-1 relative">
-          <Textarea
-            ref={textareaRef}
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder ?? 'Continue the story...'}
-            className="min-h-[44px] max-h-[200px] resize-none pr-12 bg-muted/30 border-muted focus:border-primary/50"
-            disabled={isLoading}
-          />
-        </div>
+        <Textarea
+          ref={textareaRef}
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder ?? 'Type a message...'}
+          className="flex-1 min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 text-sm placeholder:text-muted-foreground/60"
+          disabled={isLoading}
+          rows={1}
+        />
 
         {/* Send button */}
         <Button
           onClick={handleSend}
           disabled={!message.trim() || isLoading}
-          className="shrink-0 glow-primary"
+          size="icon"
+          className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {isLoading ? (
-            <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4" />
           )}
         </Button>
       </div>
 
-      {/* Keyboard hints */}
-      <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-muted-foreground/50">
-        <span><kbd className="px-1 py-0.5 bg-muted/50 rounded text-[9px]">Enter</kbd> to send</span>
-        <span><kbd className="px-1 py-0.5 bg-muted/50 rounded text-[9px]">Shift+Enter</kbd> new line</span>
+      {/* Keyboard hint */}
+      <div className="mt-2 flex justify-center">
+        <span className="text-[10px] text-muted-foreground/40">
+          Press Enter to send • Shift+Enter for new line
+        </span>
       </div>
     </div>
   );

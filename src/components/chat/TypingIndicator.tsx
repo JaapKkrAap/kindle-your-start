@@ -12,27 +12,28 @@ export function TypingIndicator({ characterName }: TypingIndicatorProps) {
       exit={{ opacity: 0, y: -10 }}
       className="flex items-center gap-3 px-4 py-3"
     >
-      <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center animate-pulse-glow">
+      {/* Animated dots container */}
+      <div className="h-11 w-11 rounded-full bg-accent/60 border border-border/50 flex items-center justify-center">
         <div className="flex gap-1">
           <motion.div
-            className="h-2 w-2 rounded-full bg-primary"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+            className="h-1.5 w-1.5 rounded-full bg-primary"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
           />
           <motion.div
-            className="h-2 w-2 rounded-full bg-primary"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+            className="h-1.5 w-1.5 rounded-full bg-primary"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 0.8, repeat: Infinity, delay: 0.15 }}
           />
           <motion.div
-            className="h-2 w-2 rounded-full bg-primary"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+            className="h-1.5 w-1.5 rounded-full bg-primary"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 0.8, repeat: Infinity, delay: 0.3 }}
           />
         </div>
       </div>
-      <span className="text-sm text-muted-foreground italic">
-        {characterName} is composing...
+      <span className="text-sm text-muted-foreground">
+        {characterName} is typing...
       </span>
     </motion.div>
   );
