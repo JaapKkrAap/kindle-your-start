@@ -1,285 +1,205 @@
 
 
-# Chat UI Redesign - Gaming/Fantasy Style
+# Memory System & Narrative Directives Integration
 
 ## Overview
 
-This plan transforms the chat interface to match the reference design featuring a dark, immersive gaming aesthetic with lime/green accents, prominent character avatars, and polished message bubbles.
+This plan integrates AI-powered memory extraction and narrative directive systems into your roleplay app. These features will enable characters to automatically remember important information from conversations and allow you to guide story direction through narrative objectives.
 
-## Key Design Changes
+## What You'll Get
 
-### Visual Direction (from reference)
-
-| Element | Current | New Design |
-|---------|---------|------------|
-| Color scheme | Purple/pink mystic | Dark slate + lime green accent |
-| User messages | Subtle accent/20 | Bright lime green bubbles |
-| Character messages | Muted background | Dark semi-transparent with subtle border |
-| Avatars | Small 10x10 | Larger 12x12, more prominent |
-| Message layout | Standard chat | Character name above, avatar beside bubble |
-| Input area | Multi-button | Clean rounded input with single send button |
-| Background | Gradient purple | Deep dark with optional character portrait |
-| Timestamps | Inline with name | Inside bubble, right-aligned |
-| System messages | Centered pill | Centered with subtle styling |
-| Quick actions | Tone buttons above | Action chips below messages (optional) |
+| Feature | Description |
+|---------|-------------|
+| **Auto Memory Extraction** | AI analyzes conversations and extracts facts, preferences, relationships, events, emotions, and goals |
+| **Narrative Directives** | Set story objectives (build tension, reveal secrets, resolve arcs) that influence character responses |
+| **Enhanced System Prompts** | Characters actively drive stories forward and use memories naturally in dialogue |
+| **Expanded Memory Categories** | New categories: fact, preference, emotion, goal (in addition to existing ones) |
 
 ---
 
-## Part 1: Update Color Theme
+## Part 1: Create Extract-Memories Edge Function
 
-### File: `src/index.css`
+### New File: `supabase/functions/extract-memories/index.ts`
 
-Update CSS variables for the new gaming aesthetic:
+A new backend function that:
+- Fetches recent messages from a chat session
+- Uses Claude 3 Haiku (fast/cheap) to analyze conversation
+- Extracts memories across 6 categories with importance ratings
+- Filters duplicates and low-importance items (below 5/10)
+- Stores new memories in the database
 
-```css
-:root {
-  --background: 220 20% 10%;           /* Deep dark blue-gray */
-  --foreground: 0 0% 95%;              /* Near white text */
-  
-  --card: 220 18% 13%;                 /* Slightly lighter cards */
-  --card-foreground: 0 0% 95%;
-  
-  --muted: 220 15% 18%;                /* Muted backgrounds */
-  --muted-foreground: 220 10% 55%;     /* Muted text */
-  
-  --primary: 82 85% 55%;               /* Lime green accent */
-  --primary-foreground: 220 20% 10%;   /* Dark text on lime */
-  
-  --accent: 220 15% 25%;               /* Dark accent for char bubbles */
-  --accent-foreground: 0 0% 95%;
-  
-  --border: 220 15% 20%;
+**Key Features:**
+- Incremental extraction (only process messages after a given ID)
+- Duplicate detection using existing memory content
+- JSON response parsing with markdown code block handling
+- Importance threshold filtering (5+)
+
+---
+
+## Part 2: Create Memory Extraction Hook
+
+### New File: `src/hooks/useMemoryExtraction.ts`
+
+A React hook to trigger memory extraction from the UI:
+
+```text
+useMemoryExtraction()
+  |-- extractMemories(sessionId, characterId, personaId?, afterMessageId?)
+  |-- isExtracting: boolean
+  |-- lastResult: { extracted: number, memories: Memory[] }
+```
+
+This calls the extract-memories edge function and returns the results.
+
+---
+
+## Part 3: Create Narrative Directives Hook
+
+### New File: `src/hooks/useNarrativeDirectives.ts`
+
+A state management hook for narrative objectives:
+
+**Directive Types:**
+- `goal` - Character pursues a motivation
+- `reveal` - Work toward revealing a secret
+- `escalate` - Build tension or create conflict
+- `resolve` - Bring closure to story threads
+
+**Pre-built Templates:**
+- Build Tension
+- Reveal Secret
+- Pursue Goal
+- Create Conflict
+- Deepen Relationship
+- Resolve Arc
+
+**API:**
+```text
+useNarrativeDirectives(characterId?)
+  |-- directives: NarrativeDirective[]
+  |-- addDirective(directive)
+  |-- addFromTemplate('buildTension' | 'revealSecret' | ...)
+  |-- removeDirective(id)
+  |-- clearDirectives()
+  |-- updatePriority(id, priority)
+  |-- getDirectivesForApi()
+```
+
+---
+
+## Part 4: Update Types
+
+### File: `src/types/index.ts`
+
+**Expand MemoryCategory:**
+```text
+Current: 'event' | 'relationship' | 'location' | 'item' | 'persona_impression' | 'emotional_shift'
+
+New:     'fact' | 'preference' | 'relationship' | 'event' | 'emotion' | 'goal' | 'location' | 'item' | 'persona_impression' | 'emotional_shift'
+```
+
+**Add NarrativeDirective interface:**
+```text
+NarrativeDirective {
+  id: string
+  characterId: string
+  type: 'goal' | 'reveal' | 'escalate' | 'resolve'
+  description: string
+  triggerCondition?: string
+  priority: number (1-10)
+  isActive: boolean
+  createdAt: Date
 }
 ```
 
-Add new utility classes:
-- `.bubble-user` - Lime green gradient background
-- `.bubble-character` - Dark semi-transparent with subtle border
-- `.bg-chat` - Chat area background with subtle pattern
-
 ---
 
-## Part 2: Redesign Message Bubbles
+## Part 5: Update AI Integration
 
-### File: `src/components/chat/ChatMessageBubble.tsx`
+### File: `src/lib/ai.ts`
 
-**Layout Changes:**
-1. Larger avatars (48x48px / h-12 w-12)
-2. Avatar positioned at top of message area
-3. Name displayed above the bubble
-4. Timestamp inside bubble, right-aligned
-5. More rounded bubbles (rounded-2xl)
-6. User messages: lime green with dark text
-7. Character messages: dark with light text
+Add `narrativeDirectives` to the chat API call:
 
-**New Structure:**
 ```text
-[Avatar]  Character Name
-          +---------------------------+
-          | Message content...        |
-          |               12:00       |
-          +---------------------------+
-          [Action buttons on hover]
+ChatCompletionParams {
+  ...existing fields
+  + narrativeDirectives?: { type, description, priority }[]
+}
 ```
 
-**User messages (right-aligned):**
-```text
-                        Your Name  [Avatar]
-          +---------------------------+
-          | Message content...        |
-          |               12:00       |
-          +---------------------------+
+Pass directives to the edge function alongside memories and canon events.
+
+---
+
+## Part 6: Update Chat Edge Function
+
+### File: `supabase/functions/chat/index.ts`
+
+**Schema Updates:**
+- Add `NarrativeDirectiveSchema` validation
+- Add `narrativeDirectives` to `ChatRequestSchema`
+
+**System Prompt Enhancements:**
+
+1. **Narrative Agency Section** - Instructions for the character to actively drive the story:
+   - Introduce complications and surprises
+   - Reference memories naturally
+   - Have opinions and pursue goals
+   - Create dramatic tension
+
+2. **Narrative Objectives Section** - When directives are provided:
+   ```text
+   <narrative_objectives>
+   - [ESCALATE] Build tension gradually... (priority: 7/10)
+   - [REVEAL] Work toward revealing a secret... (priority: 8/10)
+   </narrative_objectives>
+   ```
+
+3. **Enhanced Guiding Principles:**
+   - "ACTIVELY DRIVE THE STORY FORWARD"
+   - "End responses in ways that invite continuation"
+
+---
+
+## Files Summary
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `supabase/functions/extract-memories/index.ts` | Create | AI memory extraction edge function |
+| `src/hooks/useMemoryExtraction.ts` | Create | Hook to trigger extraction |
+| `src/hooks/useNarrativeDirectives.ts` | Create | Directive state management |
+| `src/types/index.ts` | Update | Add types and expand MemoryCategory |
+| `src/lib/ai.ts` | Update | Add narrativeDirectives to API |
+| `supabase/functions/chat/index.ts` | Update | Enhanced prompts + directive handling |
+
+---
+
+## Technical Notes
+
+### Database Compatibility
+The existing `memories` table uses `text` for the category column, so the new categories (fact, preference, emotion, goal) will work without schema changes.
+
+### Edge Function Config
+The new `extract-memories` function will need to be added to `supabase/config.toml`:
+```toml
+[functions.extract-memories]
+verify_jwt = false
 ```
 
-**Key styling:**
-- User bubble: `bg-[#9ACD32]` or `bg-lime-400` with `text-slate-900`
-- Character bubble: `bg-slate-800/80` with `text-white` and subtle border
-- Both: `rounded-2xl px-4 py-3`
-- Timestamp: `text-[10px] opacity-70` inside bubble
+### Security
+- Both edge functions validate JWT tokens
+- Memory extraction uses authenticated Supabase client
+- User can only extract memories from their own sessions (RLS enforced)
 
 ---
 
-## Part 3: Redesign System Messages
+## Implementation Order
 
-Keep centered but styled like reference:
-```tsx
-<div className="flex justify-center py-3">
-  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-    <span className="h-px w-8 bg-border" />
-    <span>{message.content}</span>
-    <span className="h-px w-8 bg-border" />
-  </div>
-</div>
-```
-
----
-
-## Part 4: Simplify Chat Input
-
-### File: `src/components/chat/ChatInput.tsx`
-
-**Redesign for cleaner look:**
-1. Single rounded input field (full-width, pill-shaped)
-2. Send button as circular icon on right side
-3. Wand/Generate button as small icon on left
-4. Remove visible tone buttons (move to popover)
-5. Darker background matching theme
-
-**New Layout:**
-```text
-+---------------------------------------------------+
-| [✨] [                                    ] [→]   |
-+---------------------------------------------------+
-```
-
-**Styling:**
-- Input container: `bg-slate-800/50 rounded-full px-4`
-- Input field: Transparent, no visible border
-- Send button: `bg-lime-400 text-slate-900 rounded-full`
-
----
-
-## Part 5: Update Chat Page Header
-
-### File: `src/pages/ChatPage.tsx`
-
-**Minimal header with character info:**
-1. Larger character avatar (56x56px)
-2. Character name prominent
-3. Status indicator (optional)
-4. Back button more subtle
-5. Session/persona pickers as icons
-
-**Optional: Background character portrait**
-If character has avatar, show large semi-transparent version as background in chat area (like left screen in reference).
-
----
-
-## Part 6: Action Buttons Redesign
-
-**Message hover actions (subtle):**
-- Smaller, icon-only by default
-- Text appears on hover
-- Positioned below message, not beside
-
-**Quick action chips (optional feature):**
-Below messages, show contextual action buttons like:
-```text
-Strike [Frostblade]  |  Execute [Rain of Blows]  |  Ability [Thunderous Shout]
-```
-These would be generated based on context and displayed as clickable chips.
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/index.css` | Update color palette, add new bubble classes |
-| `src/components/chat/ChatMessageBubble.tsx` | Complete redesign of message layout |
-| `src/components/chat/ChatInput.tsx` | Simplify to rounded pill input |
-| `src/components/chat/TypingIndicator.tsx` | Update to match new style |
-| `src/pages/ChatPage.tsx` | Update header, add optional background portrait |
-| `tailwind.config.ts` | Add lime color if needed |
-
----
-
-## Visual Comparison
-
-**Current Design:**
-```text
-+------------------------------------------+
-| [<] [Avatar] Character Name              |
-|      Traits • Traits                     |
-+------------------------------------------+
-| [Avatar] Name                    12:00   |
-|          +-------------------+           |
-|          | Message content   |           |
-|          +-------------------+           |
-|          [Canon] [Edit] [Regen]          |
-+------------------------------------------+
-| [✨] [Wand] [Input area...    ] [Send]   |
-| Enter to send | Shift+Enter new line     |
-+------------------------------------------+
-```
-
-**New Design (matching reference):**
-```text
-+------------------------------------------+
-| [<]     [Avatar]                     [⋮] |
-|         Character Name                   |
-+------------------------------------------+
-|                                          |
-|       [Avatar] Character Name            |
-|       +-------------------------+        |
-|       | Message content...      |        |
-|       |              12:00      |        |
-|       +-------------------------+        |
-|                                          |
-|                  Your Name [Avatar]      |
-|       +-------------------------+        |
-|       | Your message in lime    |        |
-|       |              12:00      |        |
-|       +-------------------------+        |
-|                                          |
-+------------------------------------------+
-| +-------------------------------------+  |
-| | [✨]  Type a message...        [→] |  |
-| +-------------------------------------+  |
-+------------------------------------------+
-```
-
----
-
-## Color Palette
-
-| Element | Color | HSL/Hex |
-|---------|-------|---------|
-| Background | Deep slate | `hsl(220 20% 10%)` / `#161b22` |
-| User bubble | Lime green | `hsl(82 85% 55%)` / `#9ACD32` or `#a3e635` |
-| Character bubble | Dark slate | `hsl(220 15% 20%)` / `#2d3748` |
-| Text (on dark) | Off-white | `hsl(0 0% 95%)` / `#f2f2f2` |
-| Text (on lime) | Dark | `hsl(220 20% 12%)` / `#1a1f2e` |
-| Muted text | Slate gray | `hsl(220 10% 55%)` / `#8b8f97` |
-| Border | Subtle | `hsl(220 15% 25%)` |
-
----
-
-## Animation & Polish
-
-1. Message entrance: Slide up with fade
-2. Hover on messages: Subtle glow effect
-3. Send button: Slight scale on press
-4. Typing indicator: Dots with staggered pulse
-5. Input focus: Subtle lime outline
-
----
-
-## Mobile Considerations
-
-- Bubbles take 90% width max
-- Avatars reduce to 40px on mobile
-- Input stays fixed at bottom
-- Touch-friendly action buttons
-- Swipe gestures for actions (optional)
-
----
-
-## Implementation Notes
-
-### Preserve Functionality
-All existing features remain:
-- Canon marking
-- Message editing
-- Regeneration with instructions
-- User message generation
-- Session switching
-- Persona selection
-
-### Gradual Enhancement
-Can implement in phases:
-1. Phase 1: Colors and basic bubble styling
-2. Phase 2: Input redesign
-3. Phase 3: Header and background
-4. Phase 4: Action chips and polish
+1. Update `src/types/index.ts` (add types)
+2. Create `src/hooks/useNarrativeDirectives.ts`
+3. Create `src/hooks/useMemoryExtraction.ts`
+4. Update `src/lib/ai.ts` (add narrativeDirectives param)
+5. Update `supabase/functions/chat/index.ts` (enhanced prompts)
+6. Create `supabase/functions/extract-memories/index.ts`
+7. Deploy edge functions
 
