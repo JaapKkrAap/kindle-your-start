@@ -14,7 +14,7 @@ interface ExtractMemoriesRequest {
 }
 
 interface Memory {
-  category: "fact" | "preference" | "relationship" | "event" | "emotion" | "goal";
+  category: "event" | "relationship" | "location" | "item" | "persona_impression" | "emotional_shift";
   content: string;
   importance: number;
 }
@@ -33,14 +33,17 @@ serve(async (req) => {
       );
     }
 
+    // Extract the JWT token from the Authorization header
+    const token = authHeader.replace('Bearer ', '');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Get user from auth token
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    // Get user from the JWT token directly
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     
     if (authError || !user) {
       console.error('Auth error:', authError?.message || 'No user found');
@@ -114,12 +117,12 @@ ${conversationText}
 </conversation>
 
 Extract memories in these categories:
-- fact: Concrete facts revealed (names, places, occupations, etc.)
-- preference: User likes/dislikes, preferences
-- relationship: Relationship dynamics, how characters relate
-- event: Significant events that happened
-- emotion: Emotional states or reactions worth remembering
-- goal: Goals, plans, or intentions mentioned
+- event: Significant events that happened in the story
+- relationship: Relationship dynamics, how characters relate to each other
+- location: Places mentioned or visited
+- item: Objects, possessions, or items of significance
+- persona_impression: Character's impression of the user's personality/identity
+- emotional_shift: Notable emotional changes or reactions
 
 For each memory:
 1. Write it from the CHARACTER's perspective (what they learned/observed)
@@ -127,9 +130,10 @@ For each memory:
 3. Rate importance 1-10 (10 = crucial to remember)
 
 Only extract genuinely memorable information. Skip small talk and trivial exchanges.
+IMPORTANT: Only use these exact categories: event, relationship, location, item, persona_impression, emotional_shift
 
 Respond ONLY with valid JSON array:
-[{"category": "fact", "content": "...", "importance": 7}, ...]
+[{"category": "event", "content": "...", "importance": 7}, ...]
 
 If nothing worth remembering, respond with empty array: []`;
 
@@ -174,9 +178,13 @@ If nothing worth remembering, respond with empty array: []`;
       );
     }
 
-    // Filter out duplicates and low-importance memories
+    // Valid categories as per database constraint
+    const validCategories = new Set(['event', 'relationship', 'location', 'item', 'persona_impression', 'emotional_shift']);
+
+    // Filter out duplicates, low-importance memories, and invalid categories
     const newMemories = extractedMemories.filter(m => 
       m.importance >= 5 && 
+      validCategories.has(m.category) &&
       !existingContents.has(m.content.toLowerCase())
     );
 
