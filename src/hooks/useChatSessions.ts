@@ -8,7 +8,7 @@ export function useChatSessions(characterId?: string) {
     queryFn: async (): Promise<ChatSession[]> => {
       let query = supabase
         .from('chat_sessions')
-        .select('*')
+        .select('*, chat_messages(count)')
         .order('updated_at', { ascending: false });
       
       if (characterId) {
@@ -26,6 +26,7 @@ export function useChatSessions(characterId?: string) {
         title: session.title,
         createdAt: new Date(session.created_at),
         updatedAt: new Date(session.updated_at),
+        messageCount: (session.chat_messages as { count: number }[])?.[0]?.count ?? 0,
       }));
     },
   });
@@ -180,6 +181,24 @@ export function useToggleCanon() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+    },
+  });
+}
+
+export function useUpdateSession() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }): Promise<void> => {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({ title })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     },
   });
 }

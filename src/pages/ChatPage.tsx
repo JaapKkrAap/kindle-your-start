@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { SessionPicker } from '@/components/chat/SessionPicker';
 import { useCharacter } from '@/hooks/useCharacters';
 import { usePersonas } from '@/hooks/usePersonas';
-import { useChatMessages, useAddChatMessage, useCreateChatSession, useToggleCanon } from '@/hooks/useChatSessions';
+import { 
+  useChatSessions, 
+  useChatMessages, 
+  useAddChatMessage, 
+  useCreateChatSession, 
+  useToggleCanon,
+  useUpdateSession 
+} from '@/hooks/useChatSessions';
 import { useAISettings } from '@/hooks/useAISettings';
 import { useToast } from '@/hooks/use-toast';
 import { sendChatMessage } from '@/lib/ai';
@@ -30,9 +38,12 @@ export default function ChatPage() {
   const { data: character, isLoading: loadingCharacter } = useCharacter(characterId);
   const { data: personas } = usePersonas();
   const { data: aiSettings } = useAISettings();
+  const { data: sessions, isLoading: loadingSessions } = useChatSessions(characterId);
+  
   const createSession = useCreateChatSession();
   const addMessage = useAddChatMessage();
   const toggleCanon = useToggleCanon();
+  const updateSession = useUpdateSession();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activePersonaId, setActivePersonaId] = useState<string | undefined>();
@@ -44,29 +55,48 @@ export default function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activePersona = personas?.find(p => p.id === activePersonaId);
+  const isCreatingSession = useRef(false);
 
-  // Create session on mount
-  useEffect(() => {
-    if (character && !sessionId) {
-      createSession.mutateAsync({
+  // Handle new session creation
+  const handleNewSession = useCallback(async () => {
+    if (!character || isCreatingSession.current) return;
+    
+    isCreatingSession.current = true;
+    try {
+      const session = await createSession.mutateAsync({
         characterId: character.id,
         personaId: activePersonaId,
         title: `Session with ${character.name}`,
-      }).then(session => {
-        setSessionId(session.id);
-        // Add character's first message
-        if (character.firstMessage) {
-          addMessage.mutate({
-            sessionId: session.id,
-            characterId: character.id,
-            personaId: activePersonaId,
-            role: 'character',
-            content: character.firstMessage,
-          });
-        }
       });
+      setSessionId(session.id);
+      
+      // Add character's first message
+      if (character.firstMessage) {
+        await addMessage.mutateAsync({
+          sessionId: session.id,
+          characterId: character.id,
+          personaId: activePersonaId,
+          role: 'character',
+          content: character.firstMessage,
+        });
+      }
+    } finally {
+      isCreatingSession.current = false;
     }
-  }, [character]);
+  }, [character, activePersonaId, createSession, addMessage]);
+
+  // Session selection logic - resume most recent or create new
+  useEffect(() => {
+    if (loadingSessions || !character) return;
+    
+    if (sessions?.length && !sessionId) {
+      // Resume most recent session
+      setSessionId(sessions[0].id);
+    } else if (!sessions?.length && !sessionId) {
+      // No sessions exist - create first one
+      handleNewSession();
+    }
+  }, [sessions, loadingSessions, sessionId, character, handleNewSession]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -75,8 +105,21 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
+  // Handle session switch
+  const handleSelectSession = (id: string) => {
+    setSessionId(id);
+    setIsTyping(false);
+  };
+
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
+
+    // Check if this is the first user message - auto-title
+    const isFirstUserMessage = !messages.some(m => m.role === 'user');
+    if (isFirstUserMessage) {
+      const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+      updateSession.mutate({ id: sessionId, title });
+    }
 
     // Add user message
     await addMessage.mutateAsync({
@@ -146,7 +189,7 @@ export default function ChatPage() {
     });
   };
 
-  if (loadingCharacter) {
+  if (loadingCharacter || loadingSessions) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -190,6 +233,15 @@ export default function ChatPage() {
           </p>
         </div>
 
+        {/* Session picker */}
+        <SessionPicker
+          sessions={sessions ?? []}
+          currentSessionId={sessionId}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
+          isLoading={createSession.isPending}
+        />
+
         {/* Persona selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -198,7 +250,7 @@ export default function ChatPage() {
               {activePersona?.name ?? 'No Persona'}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="bg-popover">
             <DropdownMenuItem onClick={() => setActivePersonaId(undefined)}>
               <User className="mr-2 h-4 w-4 text-muted-foreground" />
               No Persona (You)
