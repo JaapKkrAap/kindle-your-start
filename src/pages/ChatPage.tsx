@@ -10,6 +10,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
+import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
 import { 
   useChatSessions, 
@@ -51,8 +52,11 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
 
-  // Fetch memories - must be after activePersonaId state is declared
+  // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
+  const { data: canonEvents } = useCanonEvents(characterId);
+  const createCanonEvent = useCreateCanonEvent();
+  const deleteCanonEvent = useDeleteCanonEvent();
   
   const { data: dbMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -149,6 +153,10 @@ export default function ChatPage() {
         character,
         persona: activePersona,
         memories: memories?.map(m => m.content) ?? [],
+        canonEvents: canonEvents?.map(e => ({
+          title: e.title,
+          description: e.description,
+        })) ?? [],
         settings: aiSettings,
       });
 
@@ -171,8 +179,33 @@ export default function ChatPage() {
     }
   };
 
-  const handleToggleCanon = (id: string, isCanon: boolean) => {
-    toggleCanon.mutate({ id, isCanon });
+  const handleToggleCanon = async (id: string, isCanon: boolean) => {
+    const message = messages.find(m => m.id === id);
+    if (!message || !character) return;
+
+    // Update message flag
+    await toggleCanon.mutateAsync({ id, isCanon });
+
+    if (isCanon) {
+      // Create canon event
+      await createCanonEvent.mutateAsync({
+        characterId: character.id,
+        personaId: activePersonaId,
+        title: message.content.slice(0, 100),
+        description: message.content,
+        sourceMessageIds: [message.id],
+        eventTimestamp: message.createdAt,
+      });
+    } else {
+      // Find and delete linked canon event
+      const linkedEvent = canonEvents?.find(e => 
+        e.sourceMessageIds.includes(message.id)
+      );
+      if (linkedEvent) {
+        await deleteCanonEvent.mutateAsync(linkedEvent.id);
+      }
+    }
+
     toast({
       title: isCanon ? 'Marked as canon' : 'Removed from canon',
       description: isCanon ? 'This moment is now part of the story.' : 'This moment is no longer canon.',
