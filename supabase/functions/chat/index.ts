@@ -22,6 +22,7 @@ interface ChatRequest {
     defaultTone: string;
   };
   memories?: string[];
+  canonEvents?: { title: string; description: string }[];
   provider: "lmstudio" | "openrouter";
   lmstudioEndpoint?: string;
   lmstudioModel?: string;
@@ -33,7 +34,7 @@ interface ChatRequest {
 }
 
 function buildSystemPrompt(req: ChatRequest): string {
-  const { character, persona, memories, systemPromptOverride } = req;
+  const { character, persona, memories, canonEvents, systemPromptOverride } = req;
 
   let prompt = systemPromptOverride || `<role>
 You are a roleplay character engine built for immersive, story-driven interaction.
@@ -91,6 +92,14 @@ Adapt your responses to acknowledge this persona's characteristics.
 You remember the following from past interactions:
 ${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}
 </character_memory>`;
+  }
+
+  // Add canon events if present
+  if (canonEvents && canonEvents.length > 0) {
+    prompt += `\n\n<established_canon>
+These are absolute facts in this story. Never contradict them:
+${canonEvents.map(e => `- ${e.title}: ${e.description}`).join("\n")}
+</established_canon>`;
   }
 
   return prompt;

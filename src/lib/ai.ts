@@ -6,6 +6,7 @@ interface ChatCompletionParams {
   character: Character;
   persona?: UserPersona;
   memories?: string[];
+  canonEvents?: { title: string; description: string }[];
   settings: AISettings;
 }
 
@@ -42,6 +43,7 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
         defaultTone: persona.defaultTone,
       } : undefined,
       memories,
+      canonEvents: params.canonEvents,
       provider: settings.provider,
       lmstudioEndpoint: settings.lmstudioEndpoint,
       lmstudioModel: settings.lmstudioModel,
