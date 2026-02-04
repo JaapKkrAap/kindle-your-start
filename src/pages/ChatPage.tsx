@@ -9,6 +9,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { useCharacter } from '@/hooks/useCharacters';
+import { useMemories } from '@/hooks/useMemories';
 import { usePersonas } from '@/hooks/usePersonas';
 import { 
   useChatSessions, 
@@ -49,6 +50,9 @@ export default function ChatPage() {
   const [activePersonaId, setActivePersonaId] = useState<string | undefined>();
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+
+  // Fetch memories - must be after activePersonaId state is declared
+  const { data: memories } = useMemories(characterId, activePersonaId);
   
   const { data: dbMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -144,7 +148,7 @@ export default function ChatPage() {
         messages: chatHistory,
         character,
         persona: activePersona,
-        memories: [], // TODO: fetch memories for this character
+        memories: memories?.map(m => m.content) ?? [],
         settings: aiSettings,
       });
 
