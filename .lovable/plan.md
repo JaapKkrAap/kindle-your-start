@@ -1,204 +1,218 @@
 
-# Multi-Session Chat Support
+# Canon System Implementation
 
 ## Overzicht
 
-Chat sessies moeten persistent zijn per character, met de mogelijkheid om te wisselen tussen bestaande sessies of nieuwe aan te maken.
+Het canon system zorgt ervoor dat belangrijke story events vastgelegd, zichtbaar en herbruikbaar zijn als permanente lore die de AI beïnvloedt.
 
 ---
 
-## Huidige Problemen
+## Huidige Situatie
 
-| Probleem | Impact |
-|----------|--------|
-| ChatPage maakt altijd nieuwe sessie | Data loss, geen persistentie |
-| Geen session picker UI | Geen session switching mogelijk |
-| Geen useUpdateSession hook | Title kan niet worden geupdate |
-| Geen message count in sessies | Geen context voor gebruiker |
+| Component | Status |
+|-----------|--------|
+| `canon_events` tabel | Bestaat in database met juiste structuur |
+| `CanonEvent` type | Gedefinieerd in `src/types/index.ts` (regel 72-82) |
+| `ChatMessageBubble.tsx` | Canon toggle UI bestaat, maar creëert geen canon_event |
+| `ChatPage.tsx` | Roept alleen `useToggleCanon` aan (message flag) |
+| Edge Function | Canon wordt NIET meegestuurd naar AI |
+| `CanonPage.tsx` | Placeholder - toont geen echte data |
+| CSS `.canon-marker` | Gouden border styling bestaat al |
 
 ---
 
 ## Implementatie
 
-### 1. Type Update: `src/types/index.ts`
-
-Extend ChatSession interface met messageCount:
+### 1. Nieuwe Hook: `src/hooks/useCanonEvents.ts`
 
 ```text
-export interface ChatSession {
-  id: string;
-  characterId: string;
-  personaId?: string;
-  title: string;
-  createdAt: Date;
-  updatedAt: Date;
-  messageCount?: number;  // NEW
-}
-```
+Functies:
+- useCanonEvents(characterId?) - Fetch canon events
+- useCreateCanonEvent() - Create nieuw canon event
+- useDeleteCanonEvent() - Delete canon event
 
----
-
-### 2. Hook Updates: `src/hooks/useChatSessions.ts`
-
-**A. Update useChatSessions query om message count te includen:**
-
-```text
+Query structuur:
 supabase
-  .from('chat_sessions')
-  .select('*, chat_messages(count)')
-  .eq('character_id', characterId)
-  .order('updated_at', { ascending: false })
+  .from('canon_events')
+  .select('*')
+  .order('event_timestamp', { ascending: false })
 ```
 
-Map response om messageCount te extraheren.
-
-**B. Voeg useUpdateSession hook toe:**
-
-```text
-export function useUpdateSession() {
-  return useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      await supabase
-        .from('chat_sessions')
-        .update({ title })
-        .eq('id', id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
-    },
-  });
-}
-```
+**Optioneel filter op character_id indien gegeven.**
 
 ---
 
-### 3. Nieuw Component: `src/components/chat/SessionPicker.tsx`
+### 2. ChatPage.tsx Wijzigingen
 
-**Props:**
-- characterId: string
-- sessions: ChatSession[]
-- currentSessionId: string | null
-- onSelectSession: (id: string) => void
-- onNewSession: () => void
-- isLoading?: boolean
+**Imports toevoegen:**
+```text
+import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
+```
 
-**UI:**
-- Dropdown trigger met huidige session titel
-- Session items met:
-  - Title (truncated)
-  - Relative time (date-fns formatDistanceToNow)
-  - Message count badge
-- Separator
-- "New Session" button bovenaan of onderaan
+**Hooks initialiseren:**
+```text
+const { data: canonEvents } = useCanonEvents(characterId);
+const createCanonEvent = useCreateCanonEvent();
+const deleteCanonEvent = useDeleteCanonEvent();
+```
 
----
-
-### 4. ChatPage.tsx Refactor
-
-**Nieuwe logica:**
+**handleToggleCanon functie uitbreiden:**
 
 ```text
-// Fetch existing sessions for this character
-const { data: sessions, isLoading: loadingSessions } = useChatSessions(characterId);
+const handleToggleCanon = async (id: string, isCanon: boolean) => {
+  const message = messages.find(m => m.id === id);
+  if (!message) return;
 
-// Session selection logic
-useEffect(() => {
-  if (loadingSessions) return;
-  
-  if (sessions?.length && !sessionId) {
-    // Resume most recent session
-    setSessionId(sessions[0].id);
-  } else if (!sessions?.length && !sessionId) {
-    // No sessions exist - create first one
-    handleNewSession();
-  }
-}, [sessions, loadingSessions, sessionId]);
+  // Update message flag
+  await toggleCanon.mutateAsync({ id, isCanon });
 
-// New session handler
-const handleNewSession = async () => {
-  if (!character) return;
-  const session = await createSession.mutateAsync({
-    characterId: character.id,
-    personaId: activePersonaId,
-    title: `Session with ${character.name}`,
-  });
-  setSessionId(session.id);
-  
-  if (character.firstMessage) {
-    await addMessage.mutateAsync({
-      sessionId: session.id,
+  if (isCanon) {
+    // Create canon event
+    await createCanonEvent.mutateAsync({
       characterId: character.id,
-      role: 'character',
-      content: character.firstMessage,
+      personaId: activePersonaId,
+      title: message.content.slice(0, 100),
+      description: message.content,
+      sourceMessageIds: [message.id],
+      eventTimestamp: message.createdAt,
     });
+  } else {
+    // Find and delete linked canon event
+    const linkedEvent = canonEvents?.find(e => 
+      e.sourceMessageIds.includes(message.id)
+    );
+    if (linkedEvent) {
+      await deleteCanonEvent.mutateAsync(linkedEvent.id);
+    }
   }
-};
 
-// Session switch handler
-const handleSelectSession = (id: string) => {
-  setSessionId(id);
-  // Messages will auto-load via useChatMessages hook
+  toast({...});
 };
 ```
 
-**Auto-title na eerste user message:**
+**Canon events meesturen naar AI:**
 
-In handleSend, na eerste user message:
-
+In handleSend:
 ```text
-// Check if this is the first user message
-const isFirstUserMessage = !messages.some(m => m.role === 'user');
+// Bestaand:
+memories: memories?.map(m => m.content) ?? [],
 
-if (isFirstUserMessage && sessionId) {
-  const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
-  updateSession.mutate({ id: sessionId, title });
-}
+// Nieuw toevoegen:
+canonEvents: canonEvents?.map(e => ({
+  title: e.title,
+  description: e.description,
+})) ?? [],
 ```
-
-**Header SessionPicker toevoegen:**
-
-Naast persona dropdown, voeg SessionPicker toe met sessions data.
 
 ---
 
-## Bestanden
+### 3. Edge Function Update: `supabase/functions/chat/index.ts`
+
+**A. Extend ChatRequest interface (regel 8-33):**
+```text
+canonEvents?: { title: string; description: string }[];
+```
+
+**B. Update buildSystemPrompt functie (na memories sectie, regel 94):**
+
+```text
+// Add canon events if present
+if (canonEvents && canonEvents.length > 0) {
+  prompt += `\n\n<established_canon>
+These are absolute facts in this story. Never contradict them:
+${canonEvents.map(e => `- ${e.title}: ${e.description}`).join("\n")}
+</established_canon>`;
+}
+```
+
+---
+
+### 4. lib/ai.ts Update
+
+**A. Extend ChatCompletionParams interface:**
+```text
+canonEvents?: { title: string; description: string }[];
+```
+
+**B. Include in request body:**
+```text
+canonEvents: params.canonEvents,
+```
+
+---
+
+### 5. CanonPage.tsx Volledige Implementatie
+
+**Imports:**
+```text
+import { useCanonEvents, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
+import { useCharacters } from '@/hooks/useCharacters';
+```
+
+**Component structuur:**
+
+```text
+- Fetch all canon events (geen characterId filter)
+- Fetch all characters (voor namen bij events)
+- Group events by character
+- Timeline weergave met:
+  - Character avatar/naam
+  - Event title
+  - Event description (truncated)
+  - Formatted timestamp (date-fns)
+  - Delete button
+  - Link naar chat/session (indien sourceMessageIds beschikbaar)
+```
+
+**Empty state bestaande code behouden voor als er geen events zijn.**
+
+---
+
+## Bestanden Overzicht
 
 | Bestand | Actie |
 |---------|-------|
-| `src/types/index.ts` | Voeg messageCount toe aan ChatSession |
-| `src/hooks/useChatSessions.ts` | Update query + voeg useUpdateSession toe |
-| `src/components/chat/SessionPicker.tsx` | Nieuw component |
-| `src/pages/ChatPage.tsx` | Refactor session logica + voeg picker toe |
+| `src/hooks/useCanonEvents.ts` | Nieuw bestand |
+| `src/pages/ChatPage.tsx` | Extend handleToggleCanon + canon naar AI |
+| `src/lib/ai.ts` | Voeg canonEvents toe aan interface en body |
+| `supabase/functions/chat/index.ts` | Voeg canon toe aan system prompt |
+| `src/pages/CanonPage.tsx` | Volledige implementatie met timeline |
 
 ---
 
 ## Data Flow
 
 ```text
-1. ChatPage mount met characterId
+1. User markeert message als canon
    |
-2. useChatSessions(characterId) query
+   +-- toggleCanon.mutate({ is_canon: true })
+   +-- createCanonEvent.mutate({...})
    |
-   +-- Sessions gevonden?
-   |     |
-   |     +-- Ja: setSessionId(sessions[0].id)
-   |     |       useChatMessages(sessionId) laadt messages
-   |     |
-   |     +-- Nee: createSession()
-   |              addMessage(firstMessage)
+2. User stuurt nieuw bericht
    |
-3. User verstuurt bericht
+   +-- useCanonEvents(characterId) returns events
+   +-- sendChatMessage({ canonEvents: [...] })
    |
-   +-- Is eerste user message?
-   |     |
-   |     +-- Ja: updateSession({ title: content.slice(0,50) })
+3. Edge Function ontvangt request
    |
-4. User klikt "New Session"
+   +-- buildSystemPrompt() adds <established_canon>
    |
-   +-- createSession()
-   +-- setSessionId(newSession.id)
-   +-- addMessage(firstMessage)
+4. AI responds with awareness of canon facts
 ```
+
+---
+
+## UI Styling (reeds aanwezig)
+
+De `.canon-marker` class in `index.css` voegt al een gouden left border toe:
+
+```css
+.canon-marker::before {
+  background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--accent)));
+}
+```
+
+De `BookMarked` icon naast timestamp is ook al geïmplementeerd in ChatMessageBubble.
 
 ---
 
@@ -206,18 +220,20 @@ Naast persona dropdown, voeg SessionPicker toe met sessions data.
 
 | Scenario | Handling |
 |----------|----------|
-| Geen sessies voor character | Maak automatisch eerste sessie |
-| Session met 0 messages | Toon "Empty" in badge |
-| Lange session title | Truncate met ellipsis |
-| Session switch tijdens AI response | isTyping state reset |
+| Canon toggle terwijl geen character geladen | Early return |
+| Delete message die canon is | Zou ook canon_event moeten deleten (toekomstige feature) |
+| Meerdere messages naar 1 canon event | sourceMessageIds array ondersteunt dit |
+| Canon zonder session context | CanonPage toont alle events cross-session |
 
 ---
 
 ## Verificatie
 
 Na implementatie:
-1. Open chat met character
-2. Stuur bericht - session title update
-3. Maak nieuwe session via picker
-4. Switch terug naar oude session - messages intact
-5. Refresh pagina - sessie blijft geselecteerd
+1. Mark een message als canon
+2. Controleer dat canon_event in database verschijnt
+3. Stuur nieuw bericht
+4. Check edge function logs voor `<established_canon>` in system prompt
+5. AI moet canon respecteren in antwoord
+6. Open /canon pagina - event moet zichtbaar zijn
+7. Delete event - controleer dat het weg is
