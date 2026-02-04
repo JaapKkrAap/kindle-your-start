@@ -6,13 +6,50 @@ export function useAISettings() {
   return useQuery({
     queryKey: ['ai-settings'],
     queryFn: async (): Promise<AISettings> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Try to get user's existing settings
       const { data, error } = await supabase
         .from('ai_settings')
         .select('*')
+        .eq('user_id', user.id)
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
+      
+      // If no settings exist for this user, create default settings
+      if (!data) {
+        const defaultSettings = {
+          user_id: user.id,
+          provider: 'openrouter',
+          lmstudio_endpoint: 'http://localhost:1234/v1',
+          lmstudio_model: 'default',
+          openrouter_model: 'anthropic/claude-3.5-sonnet',
+          temperature: 0.8,
+          max_tokens: 2048,
+          system_prompt_override: null,
+        };
+        
+        const { data: newData, error: insertError } = await supabase
+          .from('ai_settings')
+          .insert(defaultSettings)
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        
+        return {
+          provider: newData.provider as 'lmstudio' | 'openrouter',
+          lmstudioEndpoint: newData.lmstudio_endpoint,
+          lmstudioModel: newData.lmstudio_model,
+          openrouterModel: newData.openrouter_model,
+          temperature: Number(newData.temperature),
+          maxTokens: newData.max_tokens,
+          systemPromptOverride: newData.system_prompt_override ?? undefined,
+        };
+      }
       
       return {
         provider: data.provider as 'lmstudio' | 'openrouter',
@@ -32,10 +69,14 @@ export function useUpdateAISettings() {
   
   return useMutation({
     mutationFn: async (data: Partial<AISettings>): Promise<void> => {
-      // First get the existing settings ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get user's settings
       const { data: existing, error: fetchError } = await supabase
         .from('ai_settings')
         .select('id')
+        .eq('user_id', user.id)
         .limit(1)
         .single();
       

@@ -1,37 +1,61 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface ChatRequest {
-  messages: { role: string; content: string }[];
-  character: {
-    name: string;
-    backstory: string;
-    personalityTraits: string[];
-    speechStyle: string;
-    behavioralBoundaries: string;
-  };
-  persona?: {
-    name: string;
-    backstory: string;
-    personalityTraits: string[];
-    speechStyle: string;
-    defaultTone: string;
-  };
-  memories?: string[];
-  canonEvents?: { title: string; description: string }[];
-  provider: "lmstudio" | "openrouter";
-  lmstudioEndpoint?: string;
-  lmstudioModel?: string;
-  openrouterModel?: string;
-  temperature?: number;
-  maxTokens?: number;
-  systemPromptOverride?: string;
-}
+// Input validation schemas
+const MessageSchema = z.object({
+  role: z.enum(["user", "assistant", "system", "character"]),
+  content: z.string().min(1).max(32000), // Allow longer for context but limit
+});
+
+const CharacterSchema = z.object({
+  name: z.string().min(1).max(100),
+  backstory: z.string().max(5000),
+  personalityTraits: z.array(z.string().max(100)).max(20),
+  speechStyle: z.string().max(1000),
+  behavioralBoundaries: z.string().max(2000),
+});
+
+const PersonaSchema = z.object({
+  name: z.string().min(1).max(100),
+  backstory: z.string().max(5000),
+  personalityTraits: z.array(z.string().max(100)).max(20),
+  speechStyle: z.string().max(1000),
+  defaultTone: z.string().max(200),
+}).optional();
+
+const CanonEventSchema = z.object({
+  title: z.string().max(200),
+  description: z.string().max(2000),
+});
+
+const ChatRequestSchema = z.object({
+  messages: z.array(MessageSchema).min(0).max(100),
+  character: CharacterSchema,
+  persona: PersonaSchema,
+  memories: z.array(z.string().max(1000)).max(50).optional(),
+  canonEvents: z.array(CanonEventSchema).max(20).optional(),
+  provider: z.enum(["lmstudio", "openrouter"]),
+  // Restrict LM Studio endpoint to localhost only (SSRF prevention)
+  lmstudioEndpoint: z.string()
+    .max(200)
+    .regex(/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/, {
+      message: "LM Studio endpoint must be localhost",
+    })
+    .optional(),
+  lmstudioModel: z.string().max(100).optional(),
+  openrouterModel: z.string().max(100).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(8192).optional(),
+  systemPromptOverride: z.string().max(10000).optional(),
+});
+
+type ChatRequest = z.infer<typeof ChatRequestSchema>;
 
 function buildSystemPrompt(req: ChatRequest): string {
   const { character, persona, memories, canonEvents, systemPromptOverride } = req;
@@ -137,13 +161,42 @@ serve(async (req) => {
       );
     }
 
-    const body: ChatRequest = await req.json();
+    // Parse and validate request body
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validationResult = ChatRequestSchema.safeParse(rawBody);
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid request data', 
+          details: validationResult.error.issues.map(i => ({
+            path: i.path.join('.'),
+            message: i.message,
+          }))
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const body = validationResult.data;
     const systemPrompt = buildSystemPrompt(body);
 
     // Build messages array with system prompt
+    // Map 'character' role to 'assistant' for API compatibility
     const messages = [
       { role: "system", content: systemPrompt },
-      ...body.messages,
+      ...body.messages.map(m => ({
+        role: m.role === 'character' ? 'assistant' : m.role,
+        content: m.content,
+      })),
     ];
 
     let response: Response;
