@@ -1,170 +1,234 @@
 
-# Canon System Implementation
+# UX Polish: Toast Retry Actions, Testing & Avatar Upload
 
 ## Overzicht
 
-Het canon system zorgt ervoor dat belangrijke story events vastgelegd, zichtbaar en herbruikbaar zijn als permanente lore die de AI beïnvloedt.
+Dit plan omvat drie onderdelen:
+1. Toast retry actions voor error states
+2. Handmatige UX test validatie (geen code changes)
+3. Image upload voor avatars (characters + personas)
 
 ---
 
-## Huidige Situatie
+## Deel 1: Toast Retry Actions
 
-| Component | Status |
-|-----------|--------|
-| `canon_events` tabel | Bestaat in database met juiste structuur |
-| `CanonEvent` type | Gedefinieerd in `src/types/index.ts` (regel 72-82) |
-| `ChatMessageBubble.tsx` | Canon toggle UI bestaat, maar creëert geen canon_event |
-| `ChatPage.tsx` | Roept alleen `useToggleCanon` aan (message flag) |
-| Edge Function | Canon wordt NIET meegestuurd naar AI |
-| `CanonPage.tsx` | Placeholder - toont geen echte data |
-| CSS `.canon-marker` | Gouden border styling bestaat al |
+### Probleem
+Momenteel tonen error toasts alleen een foutmelding zonder optie om opnieuw te proberen.
+
+### Oplossing
+Voeg een "Retry" knop toe aan error toasts die de gefaalde actie opnieuw uitvoert.
+
+### Implementatie
+
+**Bestanden:**
+- `src/pages/CharactersPage.tsx`
+- `src/pages/PersonasPage.tsx`
+- `src/pages/SessionsPage.tsx`
+- `src/pages/ChatPage.tsx`
+
+**Patroon voor elke error toast:**
+
+```text
+// Huidige code:
+toast({
+  title: 'Error',
+  description: 'Failed to create character',
+  variant: 'destructive',
+});
+
+// Nieuwe code:
+toast({
+  title: 'Error',
+  description: 'Failed to create character',
+  variant: 'destructive',
+  action: (
+    <ToastAction altText="Retry" onClick={() => handleCreate(data)}>
+      Retry
+    </ToastAction>
+  ),
+});
+```
+
+**Import toevoegen:**
+```text
+import { ToastAction } from '@/components/ui/toast';
+```
+
+### Locaties in code
+
+| Bestand | Functie | Regel (circa) |
+|---------|---------|---------------|
+| CharactersPage.tsx | handleCreate catch | error handler |
+| CharactersPage.tsx | handleDuplicate catch | error handler |
+| CharactersPage.tsx | handleDelete catch | error handler |
+| CharactersPage.tsx | edit onSubmit catch | error handler |
+| PersonasPage.tsx | handleCreate catch | error handler |
+| PersonasPage.tsx | handleDelete catch | error handler |
+| PersonasPage.tsx | edit onSubmit catch | error handler |
+| SessionsPage.tsx | handleDeleteSession catch | error handler |
+| ChatPage.tsx | handleSend catch | error handler |
 
 ---
 
-## Implementatie
+## Deel 2: UX Test Validatie
 
-### 1. Nieuwe Hook: `src/hooks/useCanonEvents.ts`
+Dit is een handmatige test - geen code changes nodig.
 
-```text
-Functies:
-- useCanonEvents(characterId?) - Fetch canon events
-- useCreateCanonEvent() - Create nieuw canon event
-- useDeleteCanonEvent() - Delete canon event
+### Test Checklist
 
-Query structuur:
-supabase
-  .from('canon_events')
-  .select('*')
-  .order('event_timestamp', { ascending: false })
-```
-
-**Optioneel filter op character_id indien gegeven.**
+| Test | Verwacht Resultaat |
+|------|-------------------|
+| Open chat met character | Messages laden met skeleton placeholders |
+| Scroll omhoog in chat | "Scroll to bottom" button verschijnt |
+| Klik scroll button | Smooth scroll naar laatste message |
+| Druk Cmd/Ctrl+K | Chat input krijgt focus |
+| Druk Enter in input | Bericht wordt verzonden |
+| Druk Shift+Enter | Nieuwe regel in input |
+| Bezoek /characters zonder data | Empty state met icon + CTA |
+| Bezoek /personas zonder data | Empty state met icon + CTA |
+| Bezoek /sessions zonder data | Empty state met icon + CTA |
+| Bekijk character zonder avatar | Initialen met consistent gekleurde achtergrond |
 
 ---
 
-### 2. ChatPage.tsx Wijzigingen
+## Deel 3: Avatar Image Upload
 
-**Imports toevoegen:**
-```text
-import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
+### Vereisten
+- Storage bucket voor avatar uploads
+- Upload component met preview
+- Integratie in CharacterFormDialog en PersonaFormDialog
+
+### Database: Storage Bucket
+
+```sql
+-- Create avatars bucket (public for easy access)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true);
+
+-- Allow public read access
+CREATE POLICY "Public read access for avatars"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+-- Allow authenticated upload (RLS disabled, so anyone can upload for now)
+CREATE POLICY "Anyone can upload avatars"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'avatars');
+
+-- Allow update/delete of own uploads
+CREATE POLICY "Anyone can update avatars"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'avatars');
+
+CREATE POLICY "Anyone can delete avatars"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'avatars');
 ```
 
-**Hooks initialiseren:**
+### Nieuwe Component: `src/components/ui/avatar-upload.tsx`
+
 ```text
-const { data: canonEvents } = useCanonEvents(characterId);
-const createCanonEvent = useCreateCanonEvent();
-const deleteCanonEvent = useDeleteCanonEvent();
+Props:
+- value?: string (current avatar URL)
+- onChange: (url: string | undefined) => void
+- placeholder?: string
+- className?: string
+
+Functionaliteit:
+- Toont huidige avatar of placeholder
+- Klik om file selector te openen
+- Accepteert alleen images (jpg, png, webp, gif)
+- Max 2MB file size
+- Upload naar storage bucket
+- Retourneert public URL
+- Toont loading state tijdens upload
+- Toont error bij gefaalde upload
 ```
 
-**handleToggleCanon functie uitbreiden:**
+**UI elementen:**
+- Avatar preview (cirkel)
+- Upload icon overlay on hover
+- Hidden file input
+- Loading spinner tijdens upload
+- Camera/Upload icon als placeholder
+
+### Hook: `src/hooks/useAvatarUpload.ts`
 
 ```text
-const handleToggleCanon = async (id: string, isCanon: boolean) => {
-  const message = messages.find(m => m.id === id);
-  if (!message) return;
-
-  // Update message flag
-  await toggleCanon.mutateAsync({ id, isCanon });
-
-  if (isCanon) {
-    // Create canon event
-    await createCanonEvent.mutateAsync({
-      characterId: character.id,
-      personaId: activePersonaId,
-      title: message.content.slice(0, 100),
-      description: message.content,
-      sourceMessageIds: [message.id],
-      eventTimestamp: message.createdAt,
-    });
-  } else {
-    // Find and delete linked canon event
-    const linkedEvent = canonEvents?.find(e => 
-      e.sourceMessageIds.includes(message.id)
-    );
-    if (linkedEvent) {
-      await deleteCanonEvent.mutateAsync(linkedEvent.id);
+export function useAvatarUpload() {
+  const uploadAvatar = async (file: File): Promise<string> => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Only images are allowed');
     }
-  }
-
-  toast({...});
-};
-```
-
-**Canon events meesturen naar AI:**
-
-In handleSend:
-```text
-// Bestaand:
-memories: memories?.map(m => m.content) ?? [],
-
-// Nieuw toevoegen:
-canonEvents: canonEvents?.map(e => ({
-  title: e.title,
-  description: e.description,
-})) ?? [],
-```
-
----
-
-### 3. Edge Function Update: `supabase/functions/chat/index.ts`
-
-**A. Extend ChatRequest interface (regel 8-33):**
-```text
-canonEvents?: { title: string; description: string }[];
-```
-
-**B. Update buildSystemPrompt functie (na memories sectie, regel 94):**
-
-```text
-// Add canon events if present
-if (canonEvents && canonEvents.length > 0) {
-  prompt += `\n\n<established_canon>
-These are absolute facts in this story. Never contradict them:
-${canonEvents.map(e => `- ${e.title}: ${e.description}`).join("\n")}
-</established_canon>`;
+    
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error('Image must be less than 2MB');
+    }
+    
+    // Generate unique filename
+    const ext = file.name.split('.').pop();
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    
+    // Upload to storage
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(filename, file);
+    
+    if (error) throw error;
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(data.path);
+    
+    return publicUrl;
+  };
+  
+  return { uploadAvatar };
 }
 ```
 
----
+### CharacterFormDialog Updates
 
-### 4. lib/ai.ts Update
-
-**A. Extend ChatCompletionParams interface:**
+**Import toevoegen:**
 ```text
-canonEvents?: { title: string; description: string }[];
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 ```
 
-**B. Include in request body:**
-```text
-canonEvents: params.canonEvents,
-```
-
----
-
-### 5. CanonPage.tsx Volledige Implementatie
-
-**Imports:**
-```text
-import { useCanonEvents, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
-import { useCharacters } from '@/hooks/useCharacters';
-```
-
-**Component structuur:**
+**Vervang huidige Avatar URL input (regel 119-131):**
 
 ```text
-- Fetch all canon events (geen characterId filter)
-- Fetch all characters (voor namen bij events)
-- Group events by character
-- Timeline weergave met:
-  - Character avatar/naam
-  - Event title
-  - Event description (truncated)
-  - Formatted timestamp (date-fns)
-  - Delete button
-  - Link naar chat/session (indien sourceMessageIds beschikbaar)
+// Huidige code:
+<div className="space-y-2">
+  <Label htmlFor="avatarUrl">Portrait URL (optional)</Label>
+  <Input ... />
+</div>
+
+// Nieuwe code:
+<div className="space-y-2">
+  <Label>Character Portrait (optional)</Label>
+  <div className="flex items-center gap-4">
+    <AvatarUpload
+      value={watch('avatarUrl')}
+      onChange={(url) => setValue('avatarUrl', url ?? '')}
+      placeholder={watch('name')?.charAt(0) ?? 'C'}
+    />
+    <div className="flex-1">
+      <Input
+        {...register('avatarUrl')}
+        placeholder="Or paste image URL..."
+        className="bg-muted/50"
+      />
+    </div>
+  </div>
+</div>
 ```
 
-**Empty state bestaande code behouden voor als er geen events zijn.**
+### PersonaFormDialog Updates
+
+Zelfde patroon als CharacterFormDialog (regel 133-142).
 
 ---
 
@@ -172,47 +236,74 @@ import { useCharacters } from '@/hooks/useCharacters';
 
 | Bestand | Actie |
 |---------|-------|
-| `src/hooks/useCanonEvents.ts` | Nieuw bestand |
-| `src/pages/ChatPage.tsx` | Extend handleToggleCanon + canon naar AI |
-| `src/lib/ai.ts` | Voeg canonEvents toe aan interface en body |
-| `supabase/functions/chat/index.ts` | Voeg canon toe aan system prompt |
-| `src/pages/CanonPage.tsx` | Volledige implementatie met timeline |
+| SQL Migration | Storage bucket + policies |
+| `src/hooks/useAvatarUpload.ts` | Nieuw bestand |
+| `src/components/ui/avatar-upload.tsx` | Nieuw bestand |
+| `src/components/characters/CharacterFormDialog.tsx` | Avatar upload integratie |
+| `src/components/personas/PersonaFormDialog.tsx` | Avatar upload integratie |
+| `src/pages/CharactersPage.tsx` | Toast retry actions |
+| `src/pages/PersonasPage.tsx` | Toast retry actions |
+| `src/pages/SessionsPage.tsx` | Toast retry actions |
+| `src/pages/ChatPage.tsx` | Toast retry actions |
 
 ---
 
-## Data Flow
+## AvatarUpload Component Structuur
 
 ```text
-1. User markeert message als canon
-   |
-   +-- toggleCanon.mutate({ is_canon: true })
-   +-- createCanonEvent.mutate({...})
-   |
-2. User stuurt nieuw bericht
-   |
-   +-- useCanonEvents(characterId) returns events
-   +-- sendChatMessage({ canonEvents: [...] })
-   |
-3. Edge Function ontvangt request
-   |
-   +-- buildSystemPrompt() adds <established_canon>
-   |
-4. AI responds with awareness of canon facts
+<div className="relative group cursor-pointer">
+  <Avatar className="h-20 w-20 border-2 border-dashed border-muted-foreground/50">
+    {value ? (
+      <AvatarImage src={value} />
+    ) : (
+      <AvatarFallback>{placeholder}</AvatarFallback>
+    )}
+  </Avatar>
+  
+  {/* Overlay */}
+  <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 
+                  group-hover:opacity-100 transition-opacity flex items-center 
+                  justify-center">
+    {isUploading ? (
+      <Loader2 className="h-6 w-6 animate-spin text-white" />
+    ) : (
+      <Upload className="h-6 w-6 text-white" />
+    )}
+  </div>
+  
+  <input
+    type="file"
+    accept="image/*"
+    className="absolute inset-0 opacity-0 cursor-pointer"
+    onChange={handleFileChange}
+    disabled={isUploading}
+  />
+</div>
 ```
 
 ---
 
-## UI Styling (reeds aanwezig)
+## Data Flow: Avatar Upload
 
-De `.canon-marker` class in `index.css` voegt al een gouden left border toe:
-
-```css
-.canon-marker::before {
-  background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--accent)));
-}
+```text
+1. User klikt op avatar placeholder
+   ↓
+2. File selector opent (accept="image/*")
+   ↓
+3. User selecteert image
+   ↓
+4. Validatie (type + size)
+   ↓
+5. Upload naar storage.avatars bucket
+   ↓
+6. Public URL terugontvangen
+   ↓
+7. onChange(publicUrl) aangeroepen
+   ↓
+8. Form state updated met nieuwe URL
+   ↓
+9. Avatar preview toont nieuwe image
 ```
-
-De `BookMarked` icon naast timestamp is ook al geïmplementeerd in ChatMessageBubble.
 
 ---
 
@@ -220,20 +311,19 @@ De `BookMarked` icon naast timestamp is ook al geïmplementeerd in ChatMessageBu
 
 | Scenario | Handling |
 |----------|----------|
-| Canon toggle terwijl geen character geladen | Early return |
-| Delete message die canon is | Zou ook canon_event moeten deleten (toekomstige feature) |
-| Meerdere messages naar 1 canon event | sourceMessageIds array ondersteunt dit |
-| Canon zonder session context | CanonPage toont alle events cross-session |
+| Upload mislukt | Toast error + keep current value |
+| File te groot | Toast error "Image must be less than 2MB" |
+| Verkeerd bestandstype | Toast error "Only images are allowed" |
+| User wist avatar | onChange(undefined), fallback naar initialen |
+| Zowel upload als URL | Upload heeft priority, URL als fallback input |
 
 ---
 
 ## Verificatie
 
 Na implementatie:
-1. Mark een message als canon
-2. Controleer dat canon_event in database verschijnt
-3. Stuur nieuw bericht
-4. Check edge function logs voor `<established_canon>` in system prompt
-5. AI moet canon respecteren in antwoord
-6. Open /canon pagina - event moet zichtbaar zijn
-7. Delete event - controleer dat het weg is
+1. **Toast Retry**: Forceer een error (disconnect netwerk), klik Retry
+2. **Avatar Upload**: Upload een image in character form
+3. **Preview**: Controleer dat avatar correct toont in character card
+4. **URL Fallback**: Plak een externe URL in plaats van upload
+5. **Validation**: Probeer een te groot bestand te uploaden
