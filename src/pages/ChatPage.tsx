@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Zap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,7 @@ export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: character, isLoading: loadingCharacter } = useCharacter(characterId);
   const { data: personas } = usePersonas();
@@ -239,6 +241,7 @@ export default function ChatPage() {
 
       // Show toast on successful extraction
       if (result.extracted > 0) {
+        queryClient.invalidateQueries({ queryKey: ['memories', characterId] });
         toast({
           title: 'Memories extracted',
           description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
