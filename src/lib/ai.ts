@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Character, UserPersona, AISettings } from '@/types';
+import type { Character, UserPersona, AISettings, RelationshipState } from '@/types';
 
 interface NarrativeDirective {
   type: 'goal' | 'reveal' | 'escalate' | 'resolve';
@@ -14,6 +14,7 @@ interface ChatCompletionParams {
   memories?: string[];
   canonEvents?: { title: string; description: string }[];
   narrativeDirectives?: NarrativeDirective[];
+  relationshipState?: RelationshipState | null;
   settings: AISettings;
 }
 
@@ -52,6 +53,7 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
       memories,
       canonEvents: params.canonEvents,
       narrativeDirectives,
+      relationshipState: params.relationshipState,
       provider: settings.provider,
       lmstudioEndpoint: settings.lmstudioEndpoint,
       lmstudioModel: settings.lmstudioModel,

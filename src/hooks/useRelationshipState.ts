@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { RelationshipState } from '@/types';
 
 export function useRelationshipState(characterId?: string, personaId?: string) {
-    return useQuery({
-        queryKey: ['relationship_state', characterId, personaId],
+    const { data: relationshipState, isLoading, error } = useQuery({
+        queryKey: ['relationship', characterId, personaId],
         queryFn: async (): Promise<RelationshipState | null> => {
             if (!characterId) return null;
 
@@ -39,6 +39,32 @@ export function useRelationshipState(characterId?: string, personaId?: string) {
         },
         enabled: !!characterId,
     });
+
+    return { relationshipState, isLoading, error };
+}
+
+export function useAnalyzeRelationship() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ sessionId, characterId, personaId }: { sessionId: string; characterId: string; personaId?: string }) => {
+            const { data, error } = await supabase.functions.invoke('analyze-relationship', {
+                body: {
+                    sessionId,
+                    characterId,
+                    personaId,
+                },
+            });
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ['relationship', variables.characterId, variables.personaId],
+            });
+        },
+    });
 }
 
 export function useUpdateRelationshipState() {
@@ -70,7 +96,7 @@ export function useUpdateRelationshipState() {
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({
-                queryKey: ['relationship_state', variables.characterId, variables.personaId],
+                queryKey: ['relationship', variables.characterId, variables.personaId],
             });
         },
     });

@@ -17,6 +17,7 @@ import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
 import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
+import { useRelationshipState, useAnalyzeRelationship } from '@/hooks/useRelationshipState';
 import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
@@ -99,6 +100,9 @@ export default function ChatPage() {
     removeDirective,
     getDirectivesForApi,
   } = useNarrativeDirectives(characterId);
+  const { relationshipState } = useRelationshipState(characterId, activePersonaId);
+  const analyzeRelationship = useAnalyzeRelationship();
+  const isAnalyzingRelationship = analyzeRelationship.isPending;
 
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -213,42 +217,50 @@ export default function ChatPage() {
     setIsTyping(false);
   };
 
-  // Memory extraction trigger (every 6 messages)
-  const maybeExtractMemories = useCallback(async () => {
-    if (!sessionId || !character || isExtracting) return;
+  // Background processing trigger (every 6 messages)
+  const processBackgroundTasks = useCallback(async () => {
+    if (!sessionId || !character || isExtracting || isAnalyzingRelationship) return;
 
-    // Count messages since last extraction (or total if never extracted)
-    const messagesSinceExtraction = lastExtractionMessageId.current
+    // Count messages since last background processing
+    const messagesSinceProcessing = lastExtractionMessageId.current
       ? messages.filter(m => {
         const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
         return messages.indexOf(m) > lastIdx;
       }).length
       : messages.length;
 
-    // Trigger extraction every 6 messages
-    if (messagesSinceExtraction >= 6) {
-      const result = await extractMemories(
+    // Trigger processing every 6 messages
+    if (messagesSinceProcessing >= 6) {
+      // 1. Extract Memories
+      const extractionResult = await extractMemories(
         sessionId,
         character.id,
         activePersonaId,
         lastExtractionMessageId.current ?? undefined
       );
 
-      // Update last extraction point
+      // 2. Analyze Relationship
+      await analyzeRelationship.mutateAsync({
+        sessionId,
+        characterId: character.id,
+        personaId: activePersonaId
+      });
+
+      // Update last processing point
       if (messages.length > 0) {
         lastExtractionMessageId.current = messages[messages.length - 1].id;
       }
 
-      // Show toast on successful extraction
-      if (result.extracted > 0) {
+      // Show toast if memories were extracted
+      if (extractionResult.extracted > 0) {
         queryClient.invalidateQueries({ queryKey: ['memories', characterId] });
         toast({
           title: 'Memories extracted',
-          description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
+          description: `${extractionResult.extracted} new ${extractionResult.extracted === 1 ? 'memory' : 'memories'} saved.`,
         });
       }
     }
-  }, [sessionId, character, activePersonaId, messages, extractMemories, isExtracting, toast]);
+  }, [sessionId, character, activePersonaId, messages, extractMemories, analyzeRelationship, isExtracting, isAnalyzingRelationship, characterId, queryClient, toast]);
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
@@ -289,6 +301,7 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
         settings: aiSettings,
       });
 
@@ -300,8 +313,8 @@ export default function ChatPage() {
         content: response.content,
       });
 
-      // Check if we should extract memories (every 6 messages)
-      maybeExtractMemories();
+      // Trigger background processing (every 6 messages)
+      processBackgroundTasks();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get AI response';
       toast({
@@ -427,6 +440,7 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
         settings: aiSettings,
       });
 
@@ -438,8 +452,8 @@ export default function ChatPage() {
         content: response.content,
       });
 
-      // Check if we should extract memories
-      maybeExtractMemories();
+      // Trigger background processing
+      processBackgroundTasks();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate';
       toast({
