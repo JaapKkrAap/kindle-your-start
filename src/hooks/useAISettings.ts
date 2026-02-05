@@ -27,7 +27,7 @@ export function useAISettings() {
           lmstudio_endpoint: 'http://localhost:1234/v1',
           lmstudio_model: 'default',
           openrouter_model: 'anthropic/claude-3.5-sonnet',
-          temperature: 0.8,
+          temperature: 0.7,
           max_tokens: 2048,
           system_prompt_override: null,
         };
