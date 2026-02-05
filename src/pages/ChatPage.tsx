@@ -507,7 +507,6 @@ Rules:
         description: e.description,
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
-      relationshipState,
       settings: aiSettings,
     });
 
@@ -562,7 +561,6 @@ Rules:
         description: e.description,
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
-      relationshipState,
       settings: aiSettings,
     });
 
