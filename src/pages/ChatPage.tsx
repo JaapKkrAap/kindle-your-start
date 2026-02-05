@@ -474,29 +474,14 @@ export default function ChatPage() {
       content: m.content,
     }));
 
-   const userName = activePersona?.name ?? 'the user';
-   const userContext = activePersona
-     ? `You are now writing AS ${userName}, with these traits: ${activePersona.personalityTraits.join(', ')}. Speech style: ${activePersona.speechStyle}. Tone: ${activePersona.defaultTone}.`
-     : `You are now writing AS the user (first person perspective).`;
-
     const response = await sendChatMessage({
       messages: [
         ...chatHistory,
         {
           role: 'system',
-         content: `IMPORTANT: Switch perspective now. You are NO LONGER ${character.name}.
-
-${userContext}
-
-Based on the conversation so far, write a natural response AS ${userName} (first person, "I/me").
-This is what ${userName} would say or do next in this roleplay.
-
-Rules:
-- Write in first person as ${userName}
-- Match ${userName}'s personality and speech style
-- Keep it natural and immersive
-- Output ONLY the message text, no meta-commentary, quotes, or labels
-- Do NOT write as ${character.name} or respond to yourself`
+          content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
+Output ONLY the suggested message text, no meta-commentary or quotes.
+Keep it natural and in-character for the user persona.`
         }
       ],
       character,
@@ -523,11 +508,6 @@ Rules:
       .slice(0, messages.indexOf(lastUserMessage))
       .map(m => ({ role: m.role, content: m.content }));
 
-   const userName = activePersona?.name ?? 'the user';
-   const userContext = activePersona
-     ? `You are now writing AS ${userName}, with these traits: ${activePersona.personalityTraits.join(', ')}. Speech style: ${activePersona.speechStyle}. Tone: ${activePersona.defaultTone}.`
-     : `You are now writing AS the user (first person perspective).`;
-
     const instructionText = instruction
       ? `Apply this adjustment: ${instruction}`
       : 'Generate a similar message with the same intent';
@@ -537,20 +517,11 @@ Rules:
         ...chatHistory,
         {
           role: 'system',
-         content: `IMPORTANT: Switch perspective now. You are NO LONGER ${character.name}.
-
-${userContext}
-
-The user (${userName}) previously wrote: "${lastUserMessage.content}"
-
+          content: `The user previously wrote: "${lastUserMessage.content}"
+        
 ${instructionText}
 
-Rules:
-- Write in first person as ${userName}
-- Match ${userName}'s personality and speech style
-- Keep it natural and immersive
-- Output ONLY the message text, no meta-commentary, quotes, or labels
-- Do NOT write as ${character.name}`
+Output ONLY the regenerated message text, no meta-commentary or quotes.`
         }
       ],
       character,
