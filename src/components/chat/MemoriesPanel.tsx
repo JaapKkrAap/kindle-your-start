@@ -11,8 +11,7 @@ import {
     MessageSquare,
     ChevronDown,
     LayoutGrid,
-    Clock,
-    BarChart3
+    Clock
 } from 'lucide-react';
 import {
     Sheet,
@@ -40,14 +39,8 @@ import {
     DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 import { Memory, MemoryCategory } from '@/types';
-import { RelationshipDashboard } from './RelationshipDashboard';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 interface MemoriesPanelProps {
     characterId: string;
@@ -91,7 +84,6 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<SortOption>('importance');
     const [filterCategory, setFilterCategory] = useState<MemoryCategory | 'all'>('all');
-    const [isRelationshipOpen, setIsRelationshipOpen] = useState(true);
 
     const filteredAndSortedMemories = useMemo(() => {
         if (!memories) return [];
@@ -236,37 +228,6 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
 
                 <ScrollArea className="flex-1 px-6">
                     <div className="py-2 space-y-6 pb-12">
-                        <Collapsible
-                            open={isRelationshipOpen}
-                            onOpenChange={setIsRelationshipOpen}
-                            className="bg-muted/10 rounded-2xl border border-border/30 overflow-hidden"
-                        >
-                            <CollapsibleTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    className="w-full flex items-center justify-between p-4 hover:bg-muted/20 rounded-none h-auto group"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <BarChart3 className="h-4 w-4 text-primary" />
-                                        <span className="text-sm font-bold">Relationship Stats</span>
-                                    </div>
-                                    <ChevronDown className={cn(
-                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                                        isRelationshipOpen ? "rotate-180" : ""
-                                    )} />
-                                </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                                <Separator className="opacity-10" />
-                                <RelationshipDashboard characterId={characterId} personaId={personaId} />
-                            </CollapsibleContent>
-                        </Collapsible>
-
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Memories</span>
-                            <Separator className="flex-1 opacity-20" />
-                        </div>
-
                         {isLoading ? (
                             <div className="space-y-4 pt-4">
                                 {[1, 2, 3].map(i => (

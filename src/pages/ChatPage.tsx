@@ -17,7 +17,6 @@ import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
 import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
-import { useRelationshipState, useAnalyzeRelationship } from '@/hooks/useRelationshipState';
 import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
@@ -100,9 +99,6 @@ export default function ChatPage() {
     removeDirective,
     getDirectivesForApi,
   } = useNarrativeDirectives(characterId);
-  const { relationshipState } = useRelationshipState(characterId, activePersonaId);
-  const analyzeRelationship = useAnalyzeRelationship();
-  const isAnalyzingRelationship = analyzeRelationship.isPending;
 
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -217,50 +213,42 @@ export default function ChatPage() {
     setIsTyping(false);
   };
 
-  // Background processing trigger (every 6 messages)
-  const processBackgroundTasks = useCallback(async () => {
-    if (!sessionId || !character || isExtracting || isAnalyzingRelationship) return;
+  // Memory extraction trigger (every 6 messages)
+  const maybeExtractMemories = useCallback(async () => {
+    if (!sessionId || !character || isExtracting) return;
 
-    // Count messages since last background processing
-    const messagesSinceProcessing = lastExtractionMessageId.current
+    // Count messages since last extraction (or total if never extracted)
+    const messagesSinceExtraction = lastExtractionMessageId.current
       ? messages.filter(m => {
         const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
         return messages.indexOf(m) > lastIdx;
       }).length
       : messages.length;
 
-    // Trigger processing every 6 messages
-    if (messagesSinceProcessing >= 6) {
-      // 1. Extract Memories
-      const extractionResult = await extractMemories(
+    // Trigger extraction every 6 messages
+    if (messagesSinceExtraction >= 6) {
+      const result = await extractMemories(
         sessionId,
         character.id,
         activePersonaId,
         lastExtractionMessageId.current ?? undefined
       );
 
-      // 2. Analyze Relationship
-      await analyzeRelationship.mutateAsync({
-        sessionId,
-        characterId: character.id,
-        personaId: activePersonaId
-      });
-
-      // Update last processing point
+      // Update last extraction point
       if (messages.length > 0) {
         lastExtractionMessageId.current = messages[messages.length - 1].id;
       }
 
-      // Show toast if memories were extracted
-      if (extractionResult.extracted > 0) {
+      // Show toast on successful extraction
+      if (result.extracted > 0) {
         queryClient.invalidateQueries({ queryKey: ['memories', characterId] });
         toast({
           title: 'Memories extracted',
-          description: `${extractionResult.extracted} new ${extractionResult.extracted === 1 ? 'memory' : 'memories'} saved.`,
+          description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
         });
       }
     }
-  }, [sessionId, character, activePersonaId, messages, extractMemories, analyzeRelationship, isExtracting, isAnalyzingRelationship, characterId, queryClient, toast]);
+  }, [sessionId, character, activePersonaId, messages, extractMemories, isExtracting, toast]);
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
@@ -301,7 +289,6 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
-        relationshipState,
         settings: aiSettings,
       });
 
@@ -313,8 +300,8 @@ export default function ChatPage() {
         content: response.content,
       });
 
-      // Trigger background processing (every 6 messages)
-      processBackgroundTasks();
+      // Check if we should extract memories (every 6 messages)
+      maybeExtractMemories();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get AI response';
       toast({
@@ -440,7 +427,6 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
-        relationshipState,
         settings: aiSettings,
       });
 
@@ -452,8 +438,8 @@ export default function ChatPage() {
         content: response.content,
       });
 
-      // Trigger background processing
-      processBackgroundTasks();
+      // Check if we should extract memories
+      maybeExtractMemories();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate';
       toast({
@@ -474,29 +460,14 @@ export default function ChatPage() {
       content: m.content,
     }));
 
-   const userName = activePersona?.name ?? 'the user';
-   const userContext = activePersona
-     ? `You are now writing AS ${userName}, with these traits: ${activePersona.personalityTraits.join(', ')}. Speech style: ${activePersona.speechStyle}. Tone: ${activePersona.defaultTone}.`
-     : `You are now writing AS the user (first person perspective).`;
-
     const response = await sendChatMessage({
       messages: [
         ...chatHistory,
         {
           role: 'system',
-         content: `IMPORTANT: Switch perspective now. You are NO LONGER ${character.name}.
-
-${userContext}
-
-Based on the conversation so far, write a natural response AS ${userName} (first person, "I/me").
-This is what ${userName} would say or do next in this roleplay.
-
-Rules:
-- Write in first person as ${userName}
-- Match ${userName}'s personality and speech style
-- Keep it natural and immersive
-- Output ONLY the message text, no meta-commentary, quotes, or labels
-- Do NOT write as ${character.name} or respond to yourself`
+          content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
+Output ONLY the suggested message text, no meta-commentary or quotes.
+Keep it natural and in-character for the user persona.`
         }
       ],
       character,
@@ -523,11 +494,6 @@ Rules:
       .slice(0, messages.indexOf(lastUserMessage))
       .map(m => ({ role: m.role, content: m.content }));
 
-   const userName = activePersona?.name ?? 'the user';
-   const userContext = activePersona
-     ? `You are now writing AS ${userName}, with these traits: ${activePersona.personalityTraits.join(', ')}. Speech style: ${activePersona.speechStyle}. Tone: ${activePersona.defaultTone}.`
-     : `You are now writing AS the user (first person perspective).`;
-
     const instructionText = instruction
       ? `Apply this adjustment: ${instruction}`
       : 'Generate a similar message with the same intent';
@@ -537,20 +503,11 @@ Rules:
         ...chatHistory,
         {
           role: 'system',
-         content: `IMPORTANT: Switch perspective now. You are NO LONGER ${character.name}.
-
-${userContext}
-
-The user (${userName}) previously wrote: "${lastUserMessage.content}"
-
+          content: `The user previously wrote: "${lastUserMessage.content}"
+        
 ${instructionText}
 
-Rules:
-- Write in first person as ${userName}
-- Match ${userName}'s personality and speech style
-- Keep it natural and immersive
-- Output ONLY the message text, no meta-commentary, quotes, or labels
-- Do NOT write as ${character.name}`
+Output ONLY the regenerated message text, no meta-commentary or quotes.`
         }
       ],
       character,
