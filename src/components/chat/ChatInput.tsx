@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, Wand2, Loader2, Sparkles, User } from 'lucide-react';
+import { Send, Wand2, Loader2, Sparkles } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -13,7 +13,6 @@ interface ChatInputProps {
   onGenerateMessage?: () => Promise<string>;
   onRegenerateUserMessage?: (instruction?: string) => Promise<string>;
   hasUserMessages?: boolean;
-  personaName?: string;
 }
 
 export function ChatInput({ 
@@ -23,8 +22,7 @@ export function ChatInput({
   inputRef,
   onGenerateMessage,
   onRegenerateUserMessage,
-  hasUserMessages,
-  personaName
+  hasUserMessages 
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showGeneratePopover, setShowGeneratePopover] = useState(false);
@@ -109,14 +107,6 @@ export function ChatInput({
             </PopoverTrigger>
             <PopoverContent className="w-56 p-2" align="start">
               <div className="space-y-1">
-              {/* Perspective indicator */}
-              <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-primary/10 border border-primary/20">
-                <User className="h-3 w-3 text-primary" />
-                <span className="text-xs text-primary font-medium">
-                  Writing as {personaName || 'You'}
-                </span>
-              </div>
-              
                 <Button
                   variant="ghost"
                   size="sm"

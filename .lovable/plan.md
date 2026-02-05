@@ -1,142 +1,117 @@
 
-# Add Perspective Indicator for Message Generation
+# Improve Roleplay Consistency
 
-## Overview
+## Problem Analysis
 
-Add visual indicators to the ChatInput's generation popover that clearly show which perspective (user/persona or character) will be used when generating or regenerating messages. This helps users understand that "Generate for me" writes from their perspective while character message regeneration writes from the character's perspective.
+The roleplay feels "all over the place" because several key context elements are not being properly integrated:
 
-## Visual Design
+1. **Relationship State Not Used**: The relationship tracking data (trust, affection, tension, respect) is fetched and sent to the backend, but the edge function completely ignores it - it's not in the validation schema and not in the system prompt.
 
-The popover will display a small badge or label showing the active perspective:
+2. **Missing Continuity Guidelines**: The system prompt lacks explicit rules for maintaining narrative consistency (scene continuity, emotional states, conversation context).
 
-```text
-+------------------------------------------+
-|  Generate as: [persona icon] "Alex"      |  <-- New header showing active perspective
-+------------------------------------------+
-|  [Sparkles] Generate for me              |
-+------------------------------------------+
-|  --- Redo last message ---               |
-|  [Same intent]                           |
-|  [Custom instruction input...]           |
-+------------------------------------------+
-```
+3. **Incomplete User Message Generation**: When generating messages for the user, relationship state and some context is missing.
 
-For the character regeneration popover (on message bubbles), it will show:
+## Solution
+
+### 1. Add Relationship State to Chat Edge Function
+
+Update `supabase/functions/chat/index.ts`:
+
+- Add `RelationshipStateSchema` to Zod validation
+- Include `relationshipState` in `ChatRequestSchema`
+- Add relationship context to `buildSystemPrompt()`:
 
 ```text
-+------------------------------------------+
-|  Generate as: [User icon] "Luna"         |  <-- Shows character name
-+------------------------------------------+
-|  [Same intent]                           |
-|  [Custom instruction input...]           |
-+------------------------------------------+
+<relationship_dynamics>
+Current relationship standing with the user:
+- Trust: 75/100 (high confidence, open to vulnerability)
+- Affection: 60/100 (warm feelings, comfortable closeness)
+- Tension: 30/100 (slight underlying tension)
+- Respect: 80/100 (strong esteem)
+
+Let these values naturally influence your character's:
+- Openness and vulnerability in dialogue
+- Physical proximity and touch descriptions
+- Patience and forgiveness
+- Willingness to share secrets or personal thoughts
+</relationship_dynamics>
 ```
 
-## Implementation Details
+### 2. Add Narrative Consistency Rules to System Prompt
 
-### 1. Update ChatInput Component
+Enhance the `<guiding_principles>` section with explicit consistency rules:
 
-| Change | Description |
-|--------|-------------|
-| Add new props | Accept `personaName` and `characterName` to display in the popover |
-| Add perspective header | Show "Writing as: [Name]" badge at the top of the popover |
-| Visual styling | Use a subtle badge with appropriate icon (User for persona, Users for character) |
-
-### 2. Update ChatMessageBubble Component
-
-| Change | Description |
-|--------|-------------|
-| Update RegeneratePopover | Accept character name as prop |
-| Add perspective header | Show "Writing as: [Character Name]" in the character regeneration popover |
-
-### 3. Pass Props from ChatPage
-
-| Change | Description |
-|--------|-------------|
-| ChatInput | Pass `personaName` (or "You" if no persona) |
-| ChatMessageBubble | Already receives character prop, just use it in RegeneratePopover |
-
-## Technical Implementation
-
-### ChatInput.tsx Changes
-
-```typescript
-interface ChatInputProps {
-  // ... existing props
-  personaName?: string;  // Name of active persona or "You"
-}
-
-// In the PopoverContent:
-<PopoverContent className="w-56 p-2" align="start">
-  <div className="space-y-1">
-    {/* New: Perspective indicator */}
-    <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-primary/10 border border-primary/20">
-      <User className="h-3 w-3 text-primary" />
-      <span className="text-xs text-primary font-medium">
-        Writing as {personaName || 'You'}
-      </span>
-    </div>
-    
-    {/* Existing buttons */}
-    <Button>Generate for me</Button>
-    ...
-  </div>
-</PopoverContent>
+```text
+<narrative_continuity>
+- REMEMBER the current scene setting (location, time, atmosphere)
+- MAINTAIN emotional states until something changes them
+- REFERENCE recent dialogue naturally - don't forget what was just said
+- TRACK physical positions - if sitting, stay sitting unless moving
+- PRESERVE ongoing tensions or affections from earlier in the conversation
+- If unsure of a detail, stay consistent with what you've established
+</narrative_continuity>
 ```
 
-### ChatMessageBubble.tsx Changes
+### 3. Add Scene Anchor Instructions
 
-```typescript
-// Update RegeneratePopover to show character perspective
-function RegeneratePopover({ 
-  messageId, 
-  characterName,  // Add this prop
-  onRegenerate 
-}) {
-  return (
-    <PopoverContent>
-      {/* Perspective indicator for character */}
-      <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-accent/50 border border-border/50">
-        <Users className="h-3 w-3 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground font-medium">
-          Writing as {characterName}
-        </span>
-      </div>
-      ...
-    </PopoverContent>
-  );
-}
+Add dynamic scene anchoring so the AI maintains awareness of the current situation:
+
+```text
+<scene_awareness>
+When responding:
+1. First, internally note: Where are we? What just happened? What's the emotional tone?
+2. Then respond in a way that acknowledges and builds on that context
+3. Any shifts in location, time, or mood should be explicitly described
+</scene_awareness>
 ```
 
-### ChatPage.tsx Changes
+### 4. Fix User Message Generation
 
-```typescript
-// Pass persona name to ChatInput
-<ChatInput
-  // ... existing props
-  personaName={activePersona?.name}
-/>
+Update `src/pages/ChatPage.tsx` to include `relationshipState` in `handleGenerateUserMessage` and `handleRegenerateUserMessage` function calls.
 
-// Pass character name through ChatMessageBubble (already available)
-```
+### 5. Add Temperature Guidance
+
+Lower default temperature from 0.8 to 0.7 for more consistent outputs while maintaining creativity. High temperature (0.8+) can cause erratic behavior.
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/chat/ChatInput.tsx` | Add `personaName` prop, add perspective indicator in popover |
-| `src/components/chat/ChatMessageBubble.tsx` | Pass character name to RegeneratePopover, add perspective indicator |
-| `src/pages/ChatPage.tsx` | Pass `personaName` prop to ChatInput |
+| File | Change |
+|------|--------|
+| `supabase/functions/chat/index.ts` | Add relationship state schema, update system prompt with relationship dynamics and continuity rules |
+| `src/pages/ChatPage.tsx` | Include `relationshipState` in user message generation calls |
+| `src/hooks/useAISettings.ts` | Lower default temperature to 0.7 |
 
-## Visual Styling
+## Technical Implementation
 
-- User perspective: Primary color scheme (lime green accent) with User icon
-- Character perspective: Muted/accent color scheme with different icon (e.g., Users or Theatre masks)
-- Both indicators use a subtle background with border for visibility without being intrusive
+### Relationship State Integration
 
-## Expected Result
+```typescript
+// Add to ChatRequestSchema in edge function
+const RelationshipStateSchema = z.object({
+  trust: z.number().min(0).max(100),
+  affection: z.number().min(0).max(100),
+  tension: z.number().min(0).max(100),
+  respect: z.number().min(0).max(100),
+}).optional();
 
-Users will immediately understand:
-1. When clicking the wand icon in the input, they see "Writing as [their persona name]" - confirming the AI will write from their perspective
-2. When clicking "Redo" on a character message, they see "Writing as [character name]" - confirming the AI will stay in character
-3. This removes confusion about which perspective the generated text will use
+const ChatRequestSchema = z.object({
+  // ... existing fields
+  relationshipState: RelationshipStateSchema,
+});
+```
+
+### System Prompt Enhancement
+
+The `buildSystemPrompt` function will be extended to:
+1. Include relationship dynamics section when `relationshipState` is provided
+2. Add narrative continuity rules to prevent context loss
+3. Add scene awareness instructions for better grounding
+
+## Expected Outcome
+
+After these changes:
+- Character responses will reflect the relationship dynamic (more open when trust is high, more guarded when low)
+- Physical and emotional continuity will be maintained across messages
+- Scene setting and atmosphere will persist naturally
+- User-generated messages will also respect relationship context
+- Overall roleplay will feel more grounded and consistent
