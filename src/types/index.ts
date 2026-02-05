@@ -57,6 +57,7 @@ export interface Memory {
   category: MemoryCategory;
   content: string;
   importance: number;
+  isPinned: boolean;
   createdAt: Date;
   sourceMessageId?: string;
 }

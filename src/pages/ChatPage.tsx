@@ -10,6 +10,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
+import { MemoriesPanel } from '@/components/chat/MemoriesPanel';
 import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
@@ -17,11 +18,11 @@ import { useMemoryExtraction } from '@/hooks/useMemoryExtraction';
 import { useNarrativeDirectives } from '@/hooks/useNarrativeDirectives';
 import { useCanonEvents, useCreateCanonEvent, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { usePersonas } from '@/hooks/usePersonas';
-import { 
-  useChatSessions, 
-  useChatMessages, 
-  useAddChatMessage, 
-  useCreateChatSession, 
+import {
+  useChatSessions,
+  useChatMessages,
+  useAddChatMessage,
+  useCreateChatSession,
   useToggleCanon,
   useUpdateSession,
   useUpdateMessage,
@@ -62,12 +63,12 @@ export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const { data: character, isLoading: loadingCharacter } = useCharacter(characterId);
   const { data: personas } = usePersonas();
   const { data: aiSettings } = useAISettings();
   const { data: sessions, isLoading: loadingSessions } = useChatSessions(characterId);
-  
+
   const createSession = useCreateChatSession();
   const addMessage = useAddChatMessage();
   const toggleCanon = useToggleCanon();
@@ -90,7 +91,7 @@ export default function ChatPage() {
   const deleteCanonEvent = useDeleteCanonEvent();
   const { extractMemories, isExtracting } = useMemoryExtraction();
   const { getDirectivesForApi } = useNarrativeDirectives(characterId);
-  
+
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
 
@@ -115,7 +116,7 @@ export default function ChatPage() {
   // Handle new session creation
   const handleNewSession = useCallback(async () => {
     if (!character || isCreatingSession.current) return;
-    
+
     isCreatingSession.current = true;
     try {
       const session = await createSession.mutateAsync({
@@ -124,7 +125,7 @@ export default function ChatPage() {
         title: `Session with ${character.name}`,
       });
       setSessionId(session.id);
-      
+
       // Add character's first message
       if (character.firstMessage) {
         await addMessage.mutateAsync({
@@ -143,7 +144,7 @@ export default function ChatPage() {
   // Session selection logic - resume most recent or create new
   useEffect(() => {
     if (loadingSessions || !character) return;
-    
+
     if (sessions?.length && !sessionId) {
       // Resume most recent session
       setSessionId(sessions[0].id);
@@ -156,7 +157,7 @@ export default function ChatPage() {
   // Initialize persona from session when session loads/changes
   useEffect(() => {
     if (!sessions || !sessionId) return;
-    
+
     const currentSession = sessions.find(s => s.id === sessionId);
     if (currentSession) {
       setActivePersonaId(currentSession.personaId);
@@ -188,12 +189,12 @@ export default function ChatPage() {
   // Handle persona change with persistence
   const handlePersonaChange = useCallback((personaId: string | undefined) => {
     setActivePersonaId(personaId);
-    
+
     // Persist to database if we have an active session
     if (sessionId) {
-      updateSession.mutate({ 
-        id: sessionId, 
-        personaId: personaId ?? null 
+      updateSession.mutate({
+        id: sessionId,
+        personaId: personaId ?? null
       });
     }
   }, [sessionId, updateSession]);
@@ -207,15 +208,15 @@ export default function ChatPage() {
   // Memory extraction trigger (every 6 messages)
   const maybeExtractMemories = useCallback(async () => {
     if (!sessionId || !character || isExtracting) return;
-    
+
     // Count messages since last extraction (or total if never extracted)
     const messagesSinceExtraction = lastExtractionMessageId.current
       ? messages.filter(m => {
-          const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
-          return messages.indexOf(m) > lastIdx;
-        }).length
+        const lastIdx = messages.findIndex(msg => msg.id === lastExtractionMessageId.current);
+        return messages.indexOf(m) > lastIdx;
+      }).length
       : messages.length;
-    
+
     // Trigger extraction every 6 messages
     if (messagesSinceExtraction >= 6) {
       const result = await extractMemories(
@@ -224,12 +225,12 @@ export default function ChatPage() {
         activePersonaId,
         lastExtractionMessageId.current ?? undefined
       );
-      
+
       // Update last extraction point
       if (messages.length > 0) {
         lastExtractionMessageId.current = messages[messages.length - 1].id;
       }
-      
+
       // Show toast on successful extraction
       if (result.extracted > 0) {
         toast({
@@ -328,7 +329,7 @@ export default function ChatPage() {
       });
     } else {
       // Find and delete linked canon event
-      const linkedEvent = canonEvents?.find(e => 
+      const linkedEvent = canonEvents?.find(e =>
         e.sourceMessageIds.includes(message.id)
       );
       if (linkedEvent) {
@@ -352,11 +353,11 @@ export default function ChatPage() {
 
   const handleSaveEdit = async () => {
     if (!editingMessageId || !editContent.trim()) return;
-    
+
     try {
-      await updateMessage.mutateAsync({ 
-        id: editingMessageId, 
-        content: editContent 
+      await updateMessage.mutateAsync({
+        id: editingMessageId,
+        content: editContent
       });
       setEditingMessageId(null);
       setEditContent('');
@@ -375,27 +376,27 @@ export default function ChatPage() {
 
   const handleRegenerate = async (id: string, instruction?: string) => {
     if (!sessionId || !character || !aiSettings || isTyping) return;
-    
+
     const messageIndex = messages.findIndex(m => m.id === id);
     if (messageIndex === -1) return;
-    
+
     const targetMessage = messages[messageIndex];
-    
+
     // Delete this message and everything after it
     await deleteMessagesAfter.mutateAsync({
       sessionId,
       afterTimestamp: targetMessage.createdAt,
     });
-    
+
     // Get conversation up to (but not including) the deleted message
     const previousMessages = messages.slice(0, messageIndex);
-    
+
     // Build chat history
     const chatHistory: { role: string; content: string }[] = previousMessages.map(m => ({
       role: m.role,
       content: m.content,
     }));
-    
+
     // Add regeneration instruction if provided
     if (instruction) {
       chatHistory.push({
@@ -403,9 +404,9 @@ export default function ChatPage() {
         content: `[Regeneration guidance: ${instruction}]`,
       });
     }
-    
+
     setIsTyping(true);
-    
+
     try {
       const response = await sendChatMessage({
         messages: chatHistory,
@@ -419,7 +420,7 @@ export default function ChatPage() {
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
       });
-      
+
       await addMessage.mutateAsync({
         sessionId,
         characterId: character.id,
@@ -444,17 +445,17 @@ export default function ChatPage() {
 
   const handleGenerateUserMessage = async (): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
-    
+
     const chatHistory = messages.map(m => ({
       role: m.role,
       content: m.content,
     }));
-    
+
     const response = await sendChatMessage({
       messages: [
         ...chatHistory,
-        { 
-          role: 'system', 
+        {
+          role: 'system',
           content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
 Output ONLY the suggested message text, no meta-commentary or quotes.
 Keep it natural and in-character for the user persona.`
@@ -470,29 +471,29 @@ Keep it natural and in-character for the user persona.`
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
     });
-    
+
     return response.content;
   };
 
   const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
-    
+
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) throw new Error('No user message to regenerate');
-    
+
     const chatHistory = messages
       .slice(0, messages.indexOf(lastUserMessage))
       .map(m => ({ role: m.role, content: m.content }));
-    
-    const instructionText = instruction 
-      ? `Apply this adjustment: ${instruction}` 
+
+    const instructionText = instruction
+      ? `Apply this adjustment: ${instruction}`
       : 'Generate a similar message with the same intent';
-    
+
     const response = await sendChatMessage({
       messages: [
         ...chatHistory,
-        { 
-          role: 'system', 
+        {
+          role: 'system',
           content: `The user previously wrote: "${lastUserMessage.content}"
         
 ${instructionText}
@@ -510,7 +511,7 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
     });
-    
+
     return response.content;
   };
 
@@ -542,9 +543,9 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
     <div className="flex h-full flex-col relative bg-chat">
       {/* Minimal Header */}
       <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
           onClick={() => navigate('/')}
         >
@@ -555,7 +556,7 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
         <div className="flex-1 flex items-center justify-center gap-3">
           <Avatar className="h-10 w-10 border-2 border-primary/40">
             <AvatarImage src={character.avatarUrl} alt={character.name} />
-            <AvatarFallback 
+            <AvatarFallback
               className="text-sm font-medium text-white"
               style={{ backgroundColor: getAvatarColor(character.name) }}
             >
@@ -573,6 +574,11 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
             onSelectSession={handleSelectSession}
             onNewSession={handleNewSession}
             isLoading={createSession.isPending}
+          />
+
+          <MemoriesPanel
+            characterId={characterId!}
+            personaId={activePersonaId}
           />
 
           <DropdownMenu>
@@ -604,8 +610,8 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
       </header>
 
       {/* Messages */}
-      <ScrollArea 
-        ref={scrollRef} 
+      <ScrollArea
+        ref={scrollRef}
         className="flex-1"
         onScrollCapture={handleScroll}
       >
