@@ -1,161 +1,117 @@
 
-# Admin Dashboard Page
+# Improve Roleplay Consistency
 
-## Overview
+## Problem Analysis
 
-Create a dedicated admin dashboard page that is only accessible to users with the `admin` role. The page will provide administrative oversight of the application including user management, system statistics, and data inspection capabilities.
+The roleplay feels "all over the place" because several key context elements are not being properly integrated:
 
-## Architecture
+1. **Relationship State Not Used**: The relationship tracking data (trust, affection, tension, respect) is fetched and sent to the backend, but the edge function completely ignores it - it's not in the validation schema and not in the system prompt.
+
+2. **Missing Continuity Guidelines**: The system prompt lacks explicit rules for maintaining narrative consistency (scene continuity, emotional states, conversation context).
+
+3. **Incomplete User Message Generation**: When generating messages for the user, relationship state and some context is missing.
+
+## Solution
+
+### 1. Add Relationship State to Chat Edge Function
+
+Update `supabase/functions/chat/index.ts`:
+
+- Add `RelationshipStateSchema` to Zod validation
+- Include `relationshipState` in `ChatRequestSchema`
+- Add relationship context to `buildSystemPrompt()`:
 
 ```text
-+------------------+       +-------------------+       +------------------+
-|   AppSidebar     |       |   AdminRoute      |       |  AdminDashboard  |
-| (show admin link |  -->  | (role check via   |  -->  | (stats, users,   |
-|  only for admins)|       |  useUserRole)     |       |  system data)    |
-+------------------+       +-------------------+       +------------------+
-                                    |
-                                    v
-                           +-------------------+
-                           |  has_role() RPC   |
-                           | (server-side      |
-                           |  verification)    |
-                           +-------------------+
+<relationship_dynamics>
+Current relationship standing with the user:
+- Trust: 75/100 (high confidence, open to vulnerability)
+- Affection: 60/100 (warm feelings, comfortable closeness)
+- Tension: 30/100 (slight underlying tension)
+- Respect: 80/100 (strong esteem)
+
+Let these values naturally influence your character's:
+- Openness and vulnerability in dialogue
+- Physical proximity and touch descriptions
+- Patience and forgiveness
+- Willingness to share secrets or personal thoughts
+</relationship_dynamics>
 ```
 
-## Implementation Steps
+### 2. Add Narrative Consistency Rules to System Prompt
 
-### 1. Create useUserRole Hook
+Enhance the `<guiding_principles>` section with explicit consistency rules:
 
-Create a new hook `src/hooks/useUserRole.ts` that checks the user's role using the database `has_role` function:
+```text
+<narrative_continuity>
+- REMEMBER the current scene setting (location, time, atmosphere)
+- MAINTAIN emotional states until something changes them
+- REFERENCE recent dialogue naturally - don't forget what was just said
+- TRACK physical positions - if sitting, stay sitting unless moving
+- PRESERVE ongoing tensions or affections from earlier in the conversation
+- If unsure of a detail, stay consistent with what you've established
+</narrative_continuity>
+```
 
-- Uses Supabase RPC to call the `has_role` function
-- Returns loading state, role status, and helper functions
-- Caches result with React Query to avoid repeated calls
+### 3. Add Scene Anchor Instructions
+
+Add dynamic scene anchoring so the AI maintains awareness of the current situation:
+
+```text
+<scene_awareness>
+When responding:
+1. First, internally note: Where are we? What just happened? What's the emotional tone?
+2. Then respond in a way that acknowledges and builds on that context
+3. Any shifts in location, time, or mood should be explicitly described
+</scene_awareness>
+```
+
+### 4. Fix User Message Generation
+
+Update `src/pages/ChatPage.tsx` to include `relationshipState` in `handleGenerateUserMessage` and `handleRegenerateUserMessage` function calls.
+
+### 5. Add Temperature Guidance
+
+Lower default temperature from 0.8 to 0.7 for more consistent outputs while maintaining creativity. High temperature (0.8+) can cause erratic behavior.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/chat/index.ts` | Add relationship state schema, update system prompt with relationship dynamics and continuity rules |
+| `src/pages/ChatPage.tsx` | Include `relationshipState` in user message generation calls |
+| `src/hooks/useAISettings.ts` | Lower default temperature to 0.7 |
+
+## Technical Implementation
+
+### Relationship State Integration
 
 ```typescript
-// Key logic:
-const { data: isAdmin } = useQuery({
-  queryKey: ['user-role', 'admin', userId],
-  queryFn: async () => {
-    const { data } = await supabase.rpc('has_role', {
-      _user_id: userId,
-      _role: 'admin'
-    });
-    return data ?? false;
-  },
-  enabled: !!userId,
+// Add to ChatRequestSchema in edge function
+const RelationshipStateSchema = z.object({
+  trust: z.number().min(0).max(100),
+  affection: z.number().min(0).max(100),
+  tension: z.number().min(0).max(100),
+  respect: z.number().min(0).max(100),
+}).optional();
+
+const ChatRequestSchema = z.object({
+  // ... existing fields
+  relationshipState: RelationshipStateSchema,
 });
 ```
 
-### 2. Create AdminRoute Component
+### System Prompt Enhancement
 
-Add an `AdminRoute` wrapper component in `src/App.tsx` that:
+The `buildSystemPrompt` function will be extended to:
+1. Include relationship dynamics section when `relationshipState` is provided
+2. Add narrative continuity rules to prevent context loss
+3. Add scene awareness instructions for better grounding
 
-- Checks admin role using the new hook
-- Shows loading state while checking
-- Redirects non-admins to home page with a toast notification
-- Only renders children for verified admins
+## Expected Outcome
 
-### 3. Create AdminDashboardPage
-
-Create `src/pages/AdminDashboardPage.tsx` with:
-
-**Header Section:**
-- Title "Admin Dashboard" with shield icon
-- Admin badge indicator
-
-**Statistics Cards:**
-- Total users count
-- Total characters count
-- Total chat sessions count
-- Total messages count
-
-**User Management Section:**
-- Table of all users with email, display name, role, and created date
-- Visual role badges (admin/moderator/user)
-
-**System Overview Section:**
-- Quick links to key admin actions
-- System health indicators
-
-### 4. Update AppSidebar
-
-Modify `src/components/layout/AppSidebar.tsx` to:
-
-- Import and use the `useUserRole` hook
-- Conditionally show the Admin nav item only for admin users
-- Add Shield icon for the admin link
-
-### 5. Update App.tsx Routes
-
-Add the new admin route wrapped in `AdminRoute`:
-
-```typescript
-<Route
-  path="/admin"
-  element={
-    <AdminRoute>
-      <AdminDashboardPage />
-    </AdminRoute>
-  }
-/>
-```
-
-## Technical Details
-
-### Security Model
-
-| Layer | Protection |
-|-------|------------|
-| Database | `has_role` function is SECURITY DEFINER, bypasses RLS |
-| Frontend Route | `AdminRoute` checks role before rendering |
-| RPC Call | Uses authenticated user's session |
-| Sidebar | Admin link hidden from non-admins |
-
-### Database Queries for Stats
-
-The admin dashboard will query aggregate counts:
-
-```sql
--- User count (via profiles table)
-SELECT COUNT(*) FROM profiles
-
--- Characters count
-SELECT COUNT(*) FROM characters
-
--- Sessions count
-SELECT COUNT(*) FROM chat_sessions
-
--- Messages count
-SELECT COUNT(*) FROM chat_messages
-```
-
-### Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `src/hooks/useUserRole.ts` | Create | Hook for checking user roles via RPC |
-| `src/pages/AdminDashboardPage.tsx` | Create | Admin dashboard UI with stats and user management |
-| `src/components/layout/AppSidebar.tsx` | Modify | Add conditional admin nav item |
-| `src/App.tsx` | Modify | Add AdminRoute wrapper and /admin route |
-
-### UI Components Used
-
-- Card, CardHeader, CardContent (statistics)
-- Table, TableHeader, TableRow, TableCell (user list)
-- Badge (role indicators)
-- Shield icon from lucide-react
-
-## RLS Policy Note
-
-Admin users will need a policy to read all user data. A new RLS policy should be added to the `profiles` table:
-
-```sql
-CREATE POLICY "Admins can read all profiles"
-ON public.profiles
-FOR SELECT
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-```
-
-Similar policies may be needed for other tables if the admin needs to view cross-user data.
+After these changes:
+- Character responses will reflect the relationship dynamic (more open when trust is high, more guarded when low)
+- Physical and emotional continuity will be maintained across messages
+- Scene setting and atmosphere will persist naturally
+- User-generated messages will also respect relationship context
+- Overall roleplay will feel more grounded and consistent
