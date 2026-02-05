@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User } from 'lucide-react';
+import { ArrowLeft, User, Zap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,6 +11,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
 import { MemoriesPanel } from '@/components/chat/MemoriesPanel';
+import { NarrativeDirectivesPopover } from '@/components/chat/NarrativeDirectivesPopover';
 import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
@@ -90,7 +91,12 @@ export default function ChatPage() {
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
   const { extractMemories, isExtracting } = useMemoryExtraction();
-  const { getDirectivesForApi } = useNarrativeDirectives(characterId);
+  const {
+    directives,
+    addFromTemplate,
+    removeDirective,
+    getDirectivesForApi,
+  } = useNarrativeDirectives(characterId);
 
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -581,6 +587,12 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
             personaId={activePersonaId}
           />
 
+          <NarrativeDirectivesPopover
+            directives={directives}
+            addFromTemplate={addFromTemplate}
+            removeDirective={removeDirective}
+          />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
@@ -608,6 +620,36 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
           </DropdownMenu>
         </div>
       </header>
+
+      {/* Active Narrative Directives Bar */}
+      <AnimatePresence>
+        {directives.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-background/40 border-b border-border/20 backdrop-blur-sm overflow-hidden">
+            <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
+              <Zap className="h-2.5 w-2.5 fill-current" />
+              Directives:
+            </span>
+            {directives.map((d) => (
+              <Badge
+                key={d.id}
+                variant="outline"
+                className="pl-2 pr-1 py-0 h-5 gap-1 bg-primary/5 border-primary/20 text-primary/80 hover:bg-primary/10 transition-colors"
+                title={d.description}
+              >
+                <span className="text-[10px] font-medium leading-none truncate max-w-[120px]">
+                  {d.description.length > 30 ? d.description.slice(0, 30) + '...' : d.description}
+                </span>
+                <button
+                  onClick={() => removeDirective(d.id)}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                >
+                  <X className="h-2 w-2" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <ScrollArea
