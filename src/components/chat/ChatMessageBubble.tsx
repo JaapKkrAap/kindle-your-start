@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { BookMarked, Edit, RefreshCw } from 'lucide-react';
+import { BookMarked, Edit, RefreshCw, Users } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ChatMessage, Character, UserPersona } from '@/types';
 import { motion } from 'framer-motion';
@@ -167,8 +167,9 @@ export function ChatMessageBubble({
             Edit
           </Button>
           {!isUser && onRegenerate && (
-            <RegeneratePopover 
-              messageId={message.id} 
+            <RegeneratePopover
+              messageId={message.id}
+              characterName={character.name}
               onRegenerate={onRegenerate} 
             />
           )}
@@ -181,9 +182,11 @@ export function ChatMessageBubble({
 // Regenerate popover component
 function RegeneratePopover({ 
   messageId, 
+  characterName,
   onRegenerate 
 }: { 
   messageId: string; 
+  characterName: string;
   onRegenerate: (id: string, instruction?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -209,6 +212,14 @@ function RegeneratePopover({
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="start">
         <div className="space-y-1">
+          {/* Perspective indicator */}
+          <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-accent/50 border border-border/50">
+            <Users className="h-3 w-3 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-medium">
+              Writing as {characterName}
+            </span>
+          </div>
+
           <Button
             variant="ghost"
             size="sm"

@@ -739,6 +739,7 @@ Rules:
         onGenerateMessage={handleGenerateUserMessage}
         onRegenerateUserMessage={handleRegenerateUserMessage}
         hasUserMessages={messages.some(m => m.role === 'user')}
+        personaName={activePersona?.name}
       />
 
       {/* Edit Message Dialog */}
