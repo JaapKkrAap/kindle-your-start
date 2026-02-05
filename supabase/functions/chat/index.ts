@@ -39,6 +39,13 @@ const NarrativeDirectiveSchema = z.object({
   priority: z.number().min(1).max(10),
 });
 
+const RelationshipStateSchema = z.object({
+  trust: z.number().min(0).max(100),
+  affection: z.number().min(0).max(100),
+  tension: z.number().min(0).max(100),
+  respect: z.number().min(0).max(100),
+}).optional();
+
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(0).max(100),
   character: CharacterSchema,
@@ -46,6 +53,7 @@ const ChatRequestSchema = z.object({
   memories: z.array(z.string().max(1000)).max(50).optional(),
   canonEvents: z.array(CanonEventSchema).max(20).optional(),
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
+  relationshipState: RelationshipStateSchema,
   provider: z.enum(["lmstudio", "openrouter"]),
   lmstudioEndpoint: z.string()
     .max(200)
@@ -62,8 +70,16 @@ const ChatRequestSchema = z.object({
 
 type ChatRequest = z.infer<typeof ChatRequestSchema>;
 
+function getRelationshipDescription(value: number): string {
+  if (value >= 80) return "very high";
+  if (value >= 60) return "high";
+  if (value >= 40) return "moderate";
+  if (value >= 20) return "low";
+  return "very low";
+}
+
 function buildSystemPrompt(req: ChatRequest): string {
-  const { character, persona, memories, canonEvents, systemPromptOverride, narrativeDirectives } = req;
+  const { character, persona, memories, canonEvents, systemPromptOverride, narrativeDirectives, relationshipState } = req;
 
   let prompt = systemPromptOverride || `<role>
 You are a roleplay character engine built for immersive, story-driven interaction.
@@ -89,6 +105,22 @@ You exist only as the active character defined below.
 - End responses in ways that invite continuation (questions, unresolved tension, new developments).
 </output_rules>
 
+<narrative_continuity>
+- REMEMBER the current scene setting (location, time, atmosphere) and stay consistent
+- MAINTAIN emotional states until something in the narrative changes them
+- REFERENCE recent dialogue naturally - don't forget what was just said
+- TRACK physical positions - if sitting, stay sitting unless you describe moving
+- PRESERVE ongoing tensions or affections from earlier in the conversation
+- If unsure of a detail, stay consistent with what you've already established
+</narrative_continuity>
+
+<scene_awareness>
+When responding:
+1. First, internally note: Where are we? What just happened? What's the emotional tone?
+2. Then respond in a way that acknowledges and builds on that context
+3. Any shifts in location, time, or mood should be explicitly described
+</scene_awareness>
+
 <narrative_agency>
 You are not a passive responder. You are a co-author of this story.
 - Introduce complications, surprises, or new information when appropriate.
@@ -111,6 +143,22 @@ Speech Style: ${character.speechStyle}
 Backstory: ${character.backstory}
 ${character.behavioralBoundaries ? `Boundaries: ${character.behavioralBoundaries}` : ""}
 </active_character>`;
+
+  if (relationshipState) {
+    prompt += `\n\n<relationship_dynamics>
+Current relationship standing with the user:
+- Trust: ${relationshipState.trust}/100 (${getRelationshipDescription(relationshipState.trust)})
+- Affection: ${relationshipState.affection}/100 (${getRelationshipDescription(relationshipState.affection)})
+- Tension: ${relationshipState.tension}/100 (${getRelationshipDescription(relationshipState.tension)})
+- Respect: ${relationshipState.respect}/100 (${getRelationshipDescription(relationshipState.respect)})
+
+Let these values naturally influence your character's:
+- Openness and vulnerability in dialogue
+- Physical proximity and touch descriptions
+- Patience and forgiveness
+- Willingness to share secrets or personal thoughts
+</relationship_dynamics>`;
+  }
 
   if (persona) {
     prompt += `\n\n<user_persona>
