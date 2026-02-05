@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Users, User, MessageSquare, Settings, BookOpen, Scroll } from 'lucide-react';
+ import { Users, User, MessageSquare, Settings, BookOpen, Scroll, Shield } from 'lucide-react';
+ import { useUserRole } from '@/hooks/useUserRole';
 
 const NAV_ITEMS = [
   { path: '/', icon: Users, label: 'Characters' },
@@ -11,8 +12,13 @@ const NAV_ITEMS = [
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+ const ADMIN_NAV_ITEM = { path: '/admin', icon: Shield, label: 'Admin' };
+ 
 export function AppSidebar() {
   const location = useLocation();
+   const { isAdmin } = useUserRole();
+ 
+   const navItems = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   return (
     <aside className="flex h-screen w-16 flex-col items-center border-r border-border/50 bg-sidebar py-4">
@@ -23,7 +29,7 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-2">
-        {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
+         {navItems.map(({ path, icon: Icon, label }) => {
           const isActive = location.pathname === path || 
             (path !== '/' && location.pathname.startsWith(path));
 
