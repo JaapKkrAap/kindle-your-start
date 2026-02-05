@@ -62,7 +62,7 @@ export interface Memory {
   sourceMessageId?: string;
 }
 
-export type MemoryCategory = 
+export type MemoryCategory =
   | 'fact'
   | 'preference'
   | 'relationship'
@@ -147,4 +147,17 @@ export interface ChatCompletionResponse {
     };
     finish_reason: string;
   }[];
+}
+
+export interface RelationshipState {
+  id: string;
+  characterId: string;
+  personaId?: string;
+  userId: string;
+  trust: number;
+  affection: number;
+  tension: number;
+  respect: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
