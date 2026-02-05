@@ -13,7 +13,6 @@ import { SessionPicker } from '@/components/chat/SessionPicker';
 import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
 import { MemoriesPanel } from '@/components/chat/MemoriesPanel';
 import { NarrativeDirectivesPopover } from '@/components/chat/NarrativeDirectivesPopover';
- import { RelationshipBar } from '@/components/chat/RelationshipBar';
 import { ChatLoadingSkeleton } from '@/components/ui/skeletons';
 import { useCharacter } from '@/hooks/useCharacters';
 import { useMemories } from '@/hooks/useMemories';
@@ -670,9 +669,6 @@ Rules:
         </div>
       </header>
 
-       {/* Relationship Stats Bar */}
-       <RelationshipBar characterId={characterId!} personaId={activePersonaId} />
- 
       {/* Active Narrative Directives Bar */}
       <AnimatePresence>
         {directives.length > 0 && (
