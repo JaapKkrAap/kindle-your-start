@@ -15,6 +15,8 @@ interface ChatCompletionParams {
   canonEvents?: { title: string; description: string }[];
   narrativeDirectives?: NarrativeDirective[];
   settings: AISettings;
+  mode?: 'roleplay' | 'generate_user_message';
+  userInstruction?: string;
 }
 
 interface ChatCompletionResponse {
@@ -52,6 +54,8 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
       memories,
       canonEvents: params.canonEvents,
       narrativeDirectives,
+      mode: params.mode ?? 'roleplay',
+      userInstruction: params.userInstruction,
       provider: settings.provider,
       lmstudioEndpoint: settings.lmstudioEndpoint,
       lmstudioModel: settings.lmstudioModel,

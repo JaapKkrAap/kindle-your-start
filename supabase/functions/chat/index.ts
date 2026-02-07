@@ -46,6 +46,8 @@ const ChatRequestSchema = z.object({
   memories: z.array(z.string().max(1000)).max(50).optional(),
   canonEvents: z.array(CanonEventSchema).max(20).optional(),
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
+  mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
+  userInstruction: z.string().max(500).optional(),
   provider: z.enum(["lmstudio", "openrouter"]),
   lmstudioEndpoint: z.string()
     .max(200)
@@ -61,6 +63,33 @@ const ChatRequestSchema = z.object({
 });
 
 type ChatRequest = z.infer<typeof ChatRequestSchema>;
+
+function buildUserGenerationPrompt(req: ChatRequest): string {
+  const { character, persona, userInstruction } = req;
+
+  let prompt = `You are a writing assistant helping a user craft their next message in a roleplay conversation. Write from the FIRST PERSON perspective of the user.
+
+You are NOT the character "${character.name}". Do NOT write as them.
+Do NOT include actions or dialogue from ${character.name}.`;
+
+  if (persona) {
+    prompt += `\n\nThe user is roleplaying as: ${persona.name}
+Their personality: ${persona.personalityTraits.join(", ")}
+Their speech style: ${persona.speechStyle}
+Their tone: ${persona.defaultTone}
+${persona.backstory ? `Their background: ${persona.backstory}` : ""}
+
+Write in their voice and style.`;
+  }
+
+  if (userInstruction) {
+    prompt += `\n\nFollow this guidance: ${userInstruction}`;
+  }
+
+  prompt += `\n\nOutput ONLY the message text. No quotes, no meta-commentary, no labels.`;
+
+  return prompt;
+}
 
 function buildSystemPrompt(req: ChatRequest): string {
   const { character, persona, memories, canonEvents, systemPromptOverride, narrativeDirectives } = req;
@@ -204,14 +233,19 @@ serve(async (req) => {
     }
 
     const body = validationResult.data;
-    const systemPrompt = buildSystemPrompt(body);
+    
+    const systemPrompt = body.mode === "generate_user_message"
+      ? buildUserGenerationPrompt(body)
+      : buildSystemPrompt(body);
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...body.messages.map(m => ({
-        role: m.role === 'character' ? 'assistant' : m.role,
-        content: m.content,
-      })),
+      ...body.messages
+        .filter(m => m.role !== "system") // Strip inline system hacks for user-gen mode
+        .map(m => ({
+          role: m.role === 'character' ? 'assistant' : m.role,
+          content: m.content,
+        })),
     ];
 
     let response: Response;
