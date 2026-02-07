@@ -8,14 +8,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AvatarUpload } from '@/components/ui/avatar-upload';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Sparkles, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { CharacterFormData, Character } from '@/types';
 
 const characterSchema = z.object({
@@ -41,6 +50,10 @@ const PERSONALITY_SUGGESTIONS = [
   'Romantic', 'Dark', 'Noble', 'Rebellious', 'Loyal', 'Ambitious',
 ];
 
+const GENRE_OPTIONS = ['Fantasy', 'Sci-Fi', 'Modern', 'Historical', 'Horror', 'Romance', 'Other'];
+const CHARACTER_TYPE_OPTIONS = ['Protagonist', 'Antagonist', 'Mentor', 'Companion', 'Trickster', 'Stranger'];
+const TONE_OPTIONS = ['Serious', 'Playful', 'Dark', 'Romantic', 'Mysterious', 'Warm'];
+
 export function CharacterFormDialog({
   open,
   onOpenChange,
@@ -50,6 +63,11 @@ export function CharacterFormDialog({
 }: CharacterFormDialogProps) {
   const [traits, setTraits] = useState<string[]>(initialData?.personalityTraits ?? []);
   const [newTrait, setNewTrait] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [genre, setGenre] = useState('');
+  const [characterType, setCharacterType] = useState('');
+  const [tone, setTone] = useState('');
 
   const {
     register,
@@ -58,6 +76,7 @@ export function CharacterFormDialog({
     reset,
     watch,
     setValue,
+    getValues,
   } = useForm<z.infer<typeof characterSchema>>({
     resolver: zodResolver(characterSchema),
     defaultValues: {
@@ -70,7 +89,6 @@ export function CharacterFormDialog({
     },
   });
 
-  // Reset form when initialData changes (for edit mode)
   useEffect(() => {
     if (open) {
       reset({
@@ -82,8 +100,76 @@ export function CharacterFormDialog({
         firstMessage: initialData?.firstMessage ?? '',
       });
       setTraits(initialData?.personalityTraits ?? []);
+      setShowPreferences(false);
+      setGenre('');
+      setCharacterType('');
+      setTone('');
     }
   }, [open, initialData, reset]);
+
+  const isFormEmpty = () => {
+    const vals = getValues();
+    return (
+      !vals.name?.trim() &&
+      !vals.backstory?.trim() &&
+      !vals.speechStyle?.trim() &&
+      !vals.behavioralBoundaries?.trim() &&
+      !vals.firstMessage?.trim() &&
+      traits.length === 0
+    );
+  };
+
+  const handleGenerate = async () => {
+    if (isFormEmpty() && !showPreferences) {
+      setShowPreferences(true);
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const vals = getValues();
+      const { data, error } = await supabase.functions.invoke('generate-character', {
+        body: {
+          existingData: {
+            name: vals.name || '',
+            backstory: vals.backstory || '',
+            personalityTraits: traits,
+            speechStyle: vals.speechStyle || '',
+            behavioralBoundaries: vals.behavioralBoundaries || '',
+            firstMessage: vals.firstMessage || '',
+          },
+          preferences: showPreferences ? {
+            genre: genre || undefined,
+            characterType: characterType || undefined,
+            tone: tone || undefined,
+          } : undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Fill only empty fields
+      if (!vals.name?.trim() && data.name) setValue('name', data.name);
+      if (!vals.backstory?.trim() && data.backstory) setValue('backstory', data.backstory);
+      if (!vals.speechStyle?.trim() && data.speechStyle) setValue('speechStyle', data.speechStyle);
+      if (!vals.behavioralBoundaries?.trim() && data.behavioralBoundaries) setValue('behavioralBoundaries', data.behavioralBoundaries);
+      if (!vals.firstMessage?.trim() && data.firstMessage) setValue('firstMessage', data.firstMessage);
+
+      if (data.personalityTraits?.length) {
+        const merged = [...new Set([...traits, ...data.personalityTraits])];
+        setTraits(merged);
+      }
+
+      setShowPreferences(false);
+      toast.success('Character generated!');
+    } catch (err: any) {
+      console.error('Generate error:', err);
+      toast.error(err.message || 'Failed to generate character');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const addTrait = (trait: string) => {
     const trimmed = trait.trim();
@@ -113,13 +199,94 @@ export function CharacterFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card max-w-2xl border-primary/20">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">
-            {initialData ? 'Edit Character' : 'Create New Character'}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="font-display text-xl">
+              {initialData ? 'Edit Character' : 'Create New Character'}
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="gap-1.5 border-primary/30 hover:bg-primary/10"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </Button>
+          </div>
         </DialogHeader>
 
         <ScrollArea className="max-h-[70vh] pr-4">
           <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+            {/* Preferences Panel */}
+            {showPreferences && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  Tell me a bit about the character you want:
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Genre</Label>
+                    <Select value={genre} onValueChange={setGenre}>
+                      <SelectTrigger className="bg-muted/50 h-9">
+                        <SelectValue placeholder="Pick..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GENRE_OPTIONS.map(g => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Type</Label>
+                    <Select value={characterType} onValueChange={setCharacterType}>
+                      <SelectTrigger className="bg-muted/50 h-9">
+                        <SelectValue placeholder="Pick..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CHARACTER_TYPE_OPTIONS.map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tone</Label>
+                    <Select value={tone} onValueChange={setTone}>
+                      <SelectTrigger className="bg-muted/50 h-9">
+                        <SelectValue placeholder="Pick..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TONE_OPTIONS.map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="w-full gap-1.5"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Generate Character
+                </Button>
+              </div>
+            )}
+
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Character Name</Label>
