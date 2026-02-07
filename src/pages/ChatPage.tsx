@@ -461,15 +461,7 @@ export default function ChatPage() {
     }));
 
     const response = await sendChatMessage({
-      messages: [
-        ...chatHistory,
-        {
-          role: 'system',
-          content: `Based on the conversation so far, generate a suggested response from the user (${activePersona?.name ?? 'the user'}). 
-Output ONLY the suggested message text, no meta-commentary or quotes.
-Keep it natural and in-character for the user persona.`
-        }
-      ],
+      messages: chatHistory,
       character,
       persona: activePersona,
       memories: memories?.map(m => m.content) ?? [],
@@ -479,6 +471,7 @@ Keep it natural and in-character for the user persona.`
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      mode: 'generate_user_message',
     });
 
     return response.content;
@@ -494,21 +487,13 @@ Keep it natural and in-character for the user persona.`
       .slice(0, messages.indexOf(lastUserMessage))
       .map(m => ({ role: m.role, content: m.content }));
 
-    const instructionText = instruction
-      ? `Apply this adjustment: ${instruction}`
-      : 'Generate a similar message with the same intent';
+
+
 
     const response = await sendChatMessage({
       messages: [
         ...chatHistory,
-        {
-          role: 'system',
-          content: `The user previously wrote: "${lastUserMessage.content}"
-        
-${instructionText}
-
-Output ONLY the regenerated message text, no meta-commentary or quotes.`
-        }
+        { role: 'user', content: lastUserMessage.content },
       ],
       character,
       persona: activePersona,
@@ -519,6 +504,8 @@ Output ONLY the regenerated message text, no meta-commentary or quotes.`
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      mode: 'generate_user_message',
+      userInstruction: instruction || `Regenerate this message with the same intent but different wording`,
     });
 
     return response.content;
