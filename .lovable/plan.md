@@ -1,83 +1,101 @@
 
 
-# Fix: User Message Generation Responds as Bot
+# AI Character Generator
 
-## Problem
+## Overview
 
-When using "Generate for me" or "Redo last message" with custom instructions, the AI responds from the **character's perspective** instead of the **user/persona's perspective**.
+Add a "Generate Character" button to the character creation form that uses AI to auto-fill empty fields based on existing input. If everything is empty, the AI asks up to 3 quick questions first via a small inline chat. If some fields are filled, it respects them and generates the rest.
 
-This happens because both `handleGenerateUserMessage` and `handleRegenerateUserMessage` call `sendChatMessage()`, which invokes the `chat` edge function. That function always builds the full character system prompt ("You are [character name]..."), which overrides the inline instruction asking for a user-perspective response.
+## UX Flow
 
-## Root Cause
+### Scenario A: All fields empty
+1. User clicks "Generate Character" (sparkle icon button at top of form)
+2. A small inline panel appears with up to 3 short questions (genre, character type, tone)
+3. User answers, clicks "Generate"
+4. AI fills all fields automatically
 
-In `src/pages/ChatPage.tsx`, the generation functions pass a `system` message saying "generate a response from the user," but the `chat` edge function prepends a much larger system prompt that says "You exist only as [character]. Always remain in character." The character identity prompt dominates.
+### Scenario B: Some fields filled
+1. User has already entered e.g. a name and some traits
+2. Clicks "Generate Character"
+3. AI reads existing input, generates the remaining fields
+4. Existing values are preserved; only empty fields get filled
 
-## Solution
-
-Add a `mode` parameter to the chat edge function that switches the system prompt for user-generation requests. When `mode: 'generate_user_message'`, the function will use a lightweight prompt focused on writing from the user/persona perspective instead of the character's roleplay prompt.
-
-### Changes
-
-**1. Edge Function: `supabase/functions/chat/index.ts`**
-
-- Add `mode` field to the request schema: `z.enum(["roleplay", "generate_user_message"]).default("roleplay")`
-- When `mode === "generate_user_message"`, skip the character roleplay system prompt entirely and use a simple utility prompt instead:
-
-```
-You are a writing assistant. Generate a message from the USER's perspective
-(first person). You are NOT the character. You are helping the user write
-their next message in a roleplay conversation.
-```
-
-- Include persona details so the AI knows the user's voice/style
-- Include conversation history for context
-
-**2. Frontend: `src/lib/ai.ts`**
-
-- Add optional `mode` field to `ChatCompletionParams`
-- Pass it through in the request body
-
-**3. Frontend: `src/pages/ChatPage.tsx`**
-
-- In `handleGenerateUserMessage`: pass `mode: 'generate_user_message'` and remove the inline system message hack
-- In `handleRegenerateUserMessage`: pass `mode: 'generate_user_message'` and move the instruction/context into a dedicated field instead of injecting it as a system message
-
-### Technical Details
-
-**Edge function system prompt for `generate_user_message` mode:**
+## Architecture
 
 ```text
-You are a writing assistant helping a user craft their next message in a
-roleplay conversation. Write from the FIRST PERSON perspective of the user.
-
-You are NOT the character "{characterName}". Do NOT write as them.
-Do NOT include actions or dialogue from {characterName}.
-
-{If persona exists:}
-The user is roleplaying as: {persona.name}
-Their personality: {persona traits}
-Their speech style: {persona.speechStyle}
-Their tone: {persona.defaultTone}
-
-{If instruction exists:}
-Follow this guidance: {instruction}
-
-Output ONLY the message text. No quotes, no meta-commentary.
++---------------------+       +---------------------------+       +------------------+
+| CharacterFormDialog |  -->  | generate-character        |  -->  | Lovable AI       |
+| (Generate button)   |       | (edge function)           |       | (gemini-2.5-flash)|
++---------------------+       +---------------------------+       +------------------+
 ```
 
-**Request schema update:**
+The edge function uses Lovable AI (no API key needed) via the `LOVABLE_API_KEY` secret, calling `google/gemini-2.5-flash` for fast, cost-efficient generation.
 
-```typescript
-// Added to ChatRequestSchema
-mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
-userInstruction: z.string().max(500).optional(),
+## Implementation Steps
+
+### 1. Create Edge Function: `supabase/functions/generate-character/index.ts`
+
+- Accepts partial character data (any fields that are already filled)
+- Accepts optional `preferences` object (genre, character type, tone) for the empty-form scenario
+- Uses a structured output prompt that returns JSON matching the form fields
+- Returns: `{ name, backstory, personalityTraits, speechStyle, behavioralBoundaries, firstMessage }`
+
+Request body:
+```json
+{
+  "existingData": {
+    "name": "Kael",
+    "personalityTraits": ["Brave"],
+    "backstory": "",
+    "speechStyle": "",
+    "behavioralBoundaries": "",
+    "firstMessage": ""
+  },
+  "preferences": {
+    "genre": "dark fantasy",
+    "characterType": "antagonist",
+    "tone": "serious"
+  }
+}
 ```
 
-### Files Modified
+### 2. Update `CharacterFormDialog.tsx`
 
-| File | Change |
-|------|--------|
-| `supabase/functions/chat/index.ts` | Add `mode` field, build alternate system prompt for user generation |
-| `src/lib/ai.ts` | Add `mode` and `userInstruction` to params and request body |
-| `src/pages/ChatPage.tsx` | Pass `mode: 'generate_user_message'` in both generate functions, clean up inline system messages |
+- Add a "Generate" button (Sparkles icon) next to the dialog title
+- When clicked with all-empty fields: show a small preferences panel with 3 dropdowns (genre, type, tone) before generating
+- When clicked with some filled fields: generate immediately
+- On response: programmatically set form values via `setValue()` and update `traits` state
+- Show loading state on the button during generation
+
+### 3. Update `supabase/config.toml`
+
+- Add `verify_jwt = false` for the new function (auth validated in code)
+
+## Technical Details
+
+### Edge Function Prompt Strategy
+
+The prompt instructs the AI to:
+- Treat any non-empty fields as immutable constraints
+- Generate missing fields that are coherent with existing ones
+- Return valid JSON only, no markdown wrapping
+- Keep backstory to 1-2 paragraphs
+- Generate 4-6 personality traits (preserving existing ones)
+- Write first message fully in-character
+
+### Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/generate-character/index.ts` | Create | Edge function for AI character generation |
+| `src/components/characters/CharacterFormDialog.tsx` | Modify | Add Generate button, preferences panel, and auto-fill logic |
+
+### UI Details
+
+- Generate button: positioned in the dialog header, uses `Sparkles` icon from lucide-react
+- Preferences panel: 3 select dropdowns that appear inline at the top of the form when all fields are empty
+  - Genre: Fantasy, Sci-Fi, Modern, Historical, Horror, Romance, Other
+  - Character Type: Protagonist, Antagonist, Mentor, Companion, Trickster, Stranger
+  - Tone: Serious, Playful, Dark, Romantic, Mysterious, Warm
+- Loading state: button shows spinner, form fields show subtle shimmer
 
