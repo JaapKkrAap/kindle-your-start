@@ -41,6 +41,7 @@ import {
 import { Memory, MemoryCategory } from '@/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { RelationshipDashboard } from './RelationshipDashboard';
 
 interface MemoriesPanelProps {
     characterId: string;
@@ -228,6 +229,8 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
 
                 <ScrollArea className="flex-1 px-6">
                     <div className="py-2 space-y-6 pb-12">
+                        <RelationshipDashboard characterId={characterId} personaId={personaId} />
+
                         {isLoading ? (
                             <div className="space-y-4 pt-4">
                                 {[1, 2, 3].map(i => (
