@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useRelationshipState } from '@/hooks/useRelationshipState';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -67,7 +66,7 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
         }
     ];
 
-    const getProgressColor = (value: number, type: string) => {
+    const getProgressColorClass = (value: number, type: string) => {
         if (type === 'positive') {
             if (value < 33) return 'bg-slate-500';
             if (value < 66) return 'bg-amber-400';
@@ -89,6 +88,8 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
                 <div className="grid gap-4">
                     {attributes.map((attr) => {
                         const Icon = attr.icon;
+                        const colorClass = getProgressColorClass(attr.value, attr.type);
+
                         return (
                             <div key={attr.label} className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs font-medium">
@@ -105,9 +106,14 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
                                     </Tooltip>
                                     <span className="text-foreground/80">{attr.value}%</span>
                                 </div>
-                                <div className="relative h-2 w-full bg-muted/50 rounded-full overflow-hidden">
+                                {/* Use a custom progress implementation to allow dynamic color classes without inline styles on the container if possible, 
+                                    but here we use the colorClass to set the background of the inner bar. 
+                                    Since the Shadcn Progress component doesn't easily expose the inner indicator class via props in a standard way (it uses bg-primary),
+                                    we will implement a simple accessible progress bar here to have full control over the color via Tailwind classes.
+                                */}
+                                <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
                                     <div
-                                        className={cn("h-full transition-all duration-500", getProgressColor(attr.value, attr.type))}
+                                        className={cn("h-full transition-all duration-500", colorClass)}
                                         style={{ width: `${attr.value}%` }}
                                     />
                                 </div>
