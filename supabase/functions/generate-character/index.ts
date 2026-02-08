@@ -89,9 +89,9 @@ For fields the user already filled, return them unchanged.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.0-flash",
         messages: [
-          { role: "system", content: "You are a character generator. Return only valid JSON, no markdown." },
+          { role: "system", content: "You are a character generator. Return only valid JSON, no markdown code blocks or additional text." },
           { role: "user", content: prompt },
         ],
         temperature: 0.85,

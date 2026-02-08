@@ -120,7 +120,8 @@ export function CharacterFormDialog({
   };
 
   const handleGenerate = async () => {
-    if (isFormEmpty() && !showPreferences) {
+    // If not showing preferences and form is empty, or user wants to refine
+    if (!showPreferences && (isFormEmpty() || !genre || !characterType || !tone)) {
       setShowPreferences(true);
       return;
     }
@@ -138,7 +139,7 @@ export function CharacterFormDialog({
             behavioralBoundaries: vals.behavioralBoundaries || '',
             firstMessage: vals.firstMessage || '',
           },
-          preferences: showPreferences ? {
+          preferences: (genre || characterType || tone) ? {
             genre: genre || undefined,
             characterType: characterType || undefined,
             tone: tone || undefined,
@@ -149,7 +150,7 @@ export function CharacterFormDialog({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Fill only empty fields
+      // Fill empty fields
       if (!vals.name?.trim() && data.name) setValue('name', data.name);
       if (!vals.backstory?.trim() && data.backstory) setValue('backstory', data.backstory);
       if (!vals.speechStyle?.trim() && data.speechStyle) setValue('speechStyle', data.speechStyle);
@@ -157,15 +158,19 @@ export function CharacterFormDialog({
       if (!vals.firstMessage?.trim() && data.firstMessage) setValue('firstMessage', data.firstMessage);
 
       if (data.personalityTraits?.length) {
-        const merged = [...new Set([...traits, ...data.personalityTraits])];
-        setTraits(merged);
+        // Only add traits that aren't already there
+        const filteredNewTraits = data.personalityTraits.filter(t => !traits.includes(t));
+        if (filteredNewTraits.length > 0) {
+          setTraits(prev => [...prev, ...filteredNewTraits]);
+        }
       }
 
       setShowPreferences(false);
-      toast.success('Character generated!');
-    } catch (err: any) {
+      toast.success('Character updated with AI!');
+    } catch (err: unknown) {
       console.error('Generate error:', err);
-      toast.error(err.message || 'Failed to generate character');
+      const message = err instanceof Error ? err.message : 'Failed to generate character';
+      toast.error(message);
     } finally {
       setIsGenerating(false);
     }
@@ -341,6 +346,7 @@ export function CharacterFormDialog({
                       type="button"
                       onClick={() => removeTrait(trait)}
                       className="ml-1 hover:text-destructive"
+                      title={`Remove ${trait}`}
                     >
                       <X className="h-3 w-3" />
                     </button>
