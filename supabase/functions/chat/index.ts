@@ -49,12 +49,7 @@ const ChatRequestSchema = z.object({
   mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
   userInstruction: z.string().max(500).optional(),
   provider: z.enum(["lmstudio", "openrouter"]),
-  lmstudioEndpoint: z.string()
-    .max(200)
-    .regex(/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/, {
-      message: "LM Studio endpoint must be localhost",
-    })
-    .optional(),
+  lmstudioEndpoint: z.string().max(200).optional(),
   lmstudioModel: z.string().max(100).optional(),
   openrouterModel: z.string().max(100).optional(),
   temperature: z.number().min(0).max(2).optional(),
@@ -200,7 +195,7 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(token);
-    
+
     if (authError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -221,8 +216,8 @@ serve(async (req) => {
     const validationResult = ChatRequestSchema.safeParse(rawBody);
     if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid request data', 
+        JSON.stringify({
+          error: 'Invalid request data',
           details: validationResult.error.issues.map(i => ({
             path: i.path.join('.'),
             message: i.message,
@@ -233,7 +228,7 @@ serve(async (req) => {
     }
 
     const body = validationResult.data;
-    
+
     const systemPrompt = body.mode === "generate_user_message"
       ? buildUserGenerationPrompt(body)
       : buildSystemPrompt(body);
@@ -252,7 +247,7 @@ serve(async (req) => {
 
     if (body.provider === "lmstudio") {
       const endpoint = body.lmstudioEndpoint || "http://localhost:1234/v1";
-      
+
       response = await fetch(`${endpoint}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -309,7 +304,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         content: aiResponse,
         usage: data.usage,
       }),
