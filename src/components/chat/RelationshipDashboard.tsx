@@ -27,33 +27,38 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
         );
     }
 
-    if (!state) return null;
+    const data = state || {
+        trust: 0,
+        affection: 0,
+        tension: 0,
+        respect: 0,
+    };
 
     const attributes = [
         {
             label: 'Trust',
-            value: state.trust,
+            value: data.trust,
             icon: Shield,
             description: 'Reflects how much the character relies on and believes in you.',
             type: 'positive'
         },
         {
             label: 'Affection',
-            value: state.affection,
+            value: data.affection,
             icon: Heart,
             description: 'Measures the emotional warmth and bond between you.',
             type: 'positive'
         },
         {
             label: 'Tension',
-            value: state.tension,
+            value: data.tension,
             icon: Zap,
             description: 'Higher tension indicates stress or conflict. Lower is generally better for stable relations.',
             type: 'negative'
         },
         {
             label: 'Respect',
-            value: state.respect,
+            value: data.respect,
             icon: Star,
             description: 'Shows how much the character values your opinions and actions.',
             type: 'positive'
@@ -99,7 +104,7 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
                                     <span className="text-foreground/80">{attr.value}%</span>
                                 </div>
                                 <div className="relative h-2 w-full bg-muted/50 rounded-full overflow-hidden">
-                                     <div 
+                                    <div
                                         className={cn("h-full transition-all duration-500", getProgressColor(attr.value, attr.type))}
                                         style={{ width: `${attr.value}%` }}
                                     />
