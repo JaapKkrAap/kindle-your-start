@@ -89,7 +89,7 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
     const filteredAndSortedMemories = useMemo(() => {
         if (!memories) return [];
 
-        let result = memories.filter(m => {
+        const result = memories.filter(m => {
             const matchesSearch = m.content.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = filterCategory === 'all' || m.category === filterCategory;
             return matchesSearch && matchesCategory;
@@ -155,11 +155,14 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
                 )}
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0 bg-background/95 backdrop-blur-xl border-l border-border/50">
+                <div className="bg-red-500 text-white text-[10px] font-bold p-1 text-center animate-pulse">
+                    DEBUG: Panel Updated - Dashboard should be below
+                </div>
                 <SheetHeader className="p-6 pb-2">
                     <div className="flex items-center justify-between">
                         <SheetTitle className="text-xl font-bold flex items-center gap-2">
                             <Zap className="h-5 w-5 text-primary" />
-                            Memories
+                            Memories (V2_DEBUG)
                         </SheetTitle>
                     </div>
 
@@ -176,6 +179,7 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
                                 <button
                                     onClick={() => setSearchQuery('')}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    title="Clear search"
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -229,6 +233,7 @@ export function MemoriesPanel({ characterId, personaId, trigger }: MemoriesPanel
 
                 <ScrollArea className="flex-1 px-6">
                     <div className="py-2 space-y-6 pb-12">
+                        <div className="text-[10px] text-center text-primary opacity-30 uppercase tracking-widest">--- Dashboard Debug Marker ---</div>
                         <RelationshipDashboard characterId={characterId} personaId={personaId} />
 
                         {isLoading ? (
