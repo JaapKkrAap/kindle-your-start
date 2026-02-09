@@ -248,7 +248,7 @@ export default function ChatPage() {
         });
       }
     }
-  }, [sessionId, character, activePersonaId, messages, extractMemories, isExtracting, toast]);
+  }, [sessionId, character, characterId, activePersonaId, messages, extractMemories, isExtracting, toast, queryClient]);
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
@@ -634,6 +634,7 @@ export default function ChatPage() {
                 <button
                   onClick={() => removeDirective(d.id)}
                   className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Remove directive"
                 >
                   <X className="h-2 w-2" />
                 </button>
