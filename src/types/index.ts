@@ -107,9 +107,16 @@ export interface AISettings {
   systemPromptOverride?: string;
 }
 
+
+export interface UISettings {
+  showChatBackgrounds: boolean;
+}
+
 export interface AppSettings {
   ai: AISettings;
+  ui: UISettings;
 }
+
 
 export interface CharacterFormData {
   name: string;
@@ -161,3 +168,11 @@ export interface RelationshipState {
   createdAt: Date;
   updatedAt: Date;
 }
+
+
+export interface WorldState {
+  location: 'indoor' | 'outdoor' | 'urban' | 'nature' | 'fantasy';
+  timeOfDay: 'day' | 'night';
+  mood: 'neutral' | 'romantic' | 'tense' | 'mysterious' | 'peaceful';
+}
+

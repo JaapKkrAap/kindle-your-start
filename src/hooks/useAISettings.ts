@@ -9,6 +9,7 @@ export function useAISettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+
       // Try to get user's existing settings
       const { data, error } = await supabase
         .from('ai_settings')
@@ -16,9 +17,9 @@ export function useAISettings() {
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       // If no settings exist for this user, create default settings
       if (!data) {
         const defaultSettings = {
@@ -31,15 +32,15 @@ export function useAISettings() {
           max_tokens: 2048,
           system_prompt_override: null,
         };
-        
+
         const { data: newData, error: insertError } = await supabase
           .from('ai_settings')
           .insert(defaultSettings)
           .select()
           .single();
-        
+
         if (insertError) throw insertError;
-        
+
         return {
           provider: newData.provider as 'lmstudio' | 'openrouter',
           lmstudioEndpoint: newData.lmstudio_endpoint,
@@ -50,7 +51,7 @@ export function useAISettings() {
           systemPromptOverride: newData.system_prompt_override ?? undefined,
         };
       }
-      
+
       return {
         provider: data.provider as 'lmstudio' | 'openrouter',
         lmstudioEndpoint: data.lmstudio_endpoint,
@@ -66,7 +67,7 @@ export function useAISettings() {
 
 export function useUpdateAISettings() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (data: Partial<AISettings>): Promise<void> => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -79,9 +80,9 @@ export function useUpdateAISettings() {
         .eq('user_id', user.id)
         .limit(1)
         .single();
-      
+
       if (fetchError) throw fetchError;
-      
+
       const updateData: Record<string, unknown> = {};
       if (data.provider !== undefined) updateData.provider = data.provider;
       if (data.lmstudioEndpoint !== undefined) updateData.lmstudio_endpoint = data.lmstudioEndpoint;
@@ -90,12 +91,12 @@ export function useUpdateAISettings() {
       if (data.temperature !== undefined) updateData.temperature = data.temperature;
       if (data.maxTokens !== undefined) updateData.max_tokens = data.maxTokens;
       if (data.systemPromptOverride !== undefined) updateData.system_prompt_override = data.systemPromptOverride;
-      
+
       const { error } = await supabase
         .from('ai_settings')
         .update(updateData)
         .eq('id', existing.id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {

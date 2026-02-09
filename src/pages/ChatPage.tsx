@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Zap, X } from 'lucide-react';
+import { ArrowLeft, User, Zap, X, Image as ImageIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
@@ -31,6 +33,8 @@ import {
   useDeleteMessagesAfter,
 } from '@/hooks/useChatSessions';
 import { useAISettings } from '@/hooks/useAISettings';
+import { useUISettings } from '@/hooks/useUISettings';
+import { useBackgroundSelector } from '@/hooks/useBackgroundSelector';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { sendChatMessage } from '@/lib/ai';
@@ -39,6 +43,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -48,8 +54,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { AnimatePresence } from 'framer-motion';
-import type { ChatMessage } from '@/types';
+import { AnimatePresence, motion } from 'framer-motion';
+import type { ChatMessage, WorldState } from '@/types';
 
 // Generate consistent color from name
 function getAvatarColor(name: string): string {
@@ -70,6 +76,7 @@ export default function ChatPage() {
   const { data: character, isLoading: loadingCharacter } = useCharacter(characterId);
   const { data: personas } = usePersonas();
   const { data: aiSettings } = useAISettings();
+  const { settings: uiSettings, updateSettings: updateUiSettings } = useUISettings();
   const { data: sessions, isLoading: loadingSessions } = useChatSessions(characterId);
 
   const createSession = useCreateChatSession();
@@ -86,6 +93,15 @@ export default function ChatPage() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+
+  // World State (Default neutral)
+  const [worldState, setWorldState] = useState<WorldState>({
+    location: 'indoor',
+    timeOfDay: 'day',
+    mood: 'neutral'
+  });
+
+  const { backgroundUrl, fallbackBackground } = useBackgroundSelector(worldState);
 
   // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
@@ -537,177 +553,273 @@ export default function ChatPage() {
     .toUpperCase()
     .slice(0, 2);
 
+  // Background Styles
+  const backgroundStyle: React.CSSProperties = uiSettings.showChatBackgrounds ? {
+    backgroundImage: `url(${backgroundUrl}), ${fallbackBackground}`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundBlendMode: 'overlay',
+  } : {};
+
+  // Mood filter classes
+  const getMoodClass = () => {
+    if (!uiSettings.showChatBackgrounds) return '';
+    switch (worldState.mood) {
+      case 'tense': return 'brightness-90 contrast-110 sepia-[0.2]';
+      case 'romantic': return 'brightness-105 contrast-105 saturate-110 sepia-[0.1]';
+      case 'mysterious': return 'brightness-90 contrast-120 hue-rotate-[10deg] saturate-90';
+      case 'peaceful': return 'brightness-110 contrast-90 saturate-90';
+      default: return '';
+    }
+  };
+
   return (
-    <div className="flex h-full flex-col relative bg-chat">
-      {/* Minimal Header */}
-      <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+    <div className="flex h-full flex-col relative overflow-hidden transition-all duration-500 ease-in-out">
 
-        {/* Character info - centered */}
-        <div className="flex-1 flex items-center justify-center gap-3">
-          <Avatar className="h-10 w-10 border-2 border-primary/40">
-            <AvatarImage src={character.avatarUrl} alt={character.name} />
-            <AvatarFallback
-              className="text-sm font-medium text-white"
-              style={{ backgroundColor: getAvatarColor(character.name) }}
-            >
-              {characterInitials}
-            </AvatarFallback>
-          </Avatar>
-          <h1 className="text-lg font-semibold">{character.name}</h1>
-        </div>
+      {/* Background Layer */}
+      {uiSettings.showChatBackgrounds && (
+        <div
+          className={`absolute inset-0 z-0 transition-all duration-1000 ease-in-out ${getMoodClass()}`}
+          style={backgroundStyle}
+        />
+      )}
 
-        {/* Right controls */}
-        <div className="flex items-center gap-2">
-          <SessionPicker
-            sessions={sessions ?? []}
-            currentSessionId={sessionId}
-            onSelectSession={handleSelectSession}
-            onNewSession={handleNewSession}
-            isLoading={createSession.isPending}
-          />
+      {/* Dark Overlay for readability */}
+      {uiSettings.showChatBackgrounds && (
+        <div className="absolute inset-0 z-0 bg-background/80 backdrop-blur-[2px]" />
+      )}
 
-          <MemoriesPanel
-            characterId={characterId!}
-            personaId={activePersonaId}
-          />
+      {/* Content Layer */}
+      <div className="flex flex-col h-full relative z-10">
+        {/* Minimal Header */}
+        <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
 
-          <NarrativeDirectivesPopover
-            directives={directives}
-            addFromTemplate={addFromTemplate}
-            removeDirective={removeDirective}
-          />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
-                <User className="h-4 w-4" />
-                <Badge variant="secondary" className="text-xs font-normal">
-                  {activePersona?.name ?? 'You'}
-                </Badge>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover">
-              <DropdownMenuItem onClick={() => handlePersonaChange(undefined)}>
-                <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                No Persona (You)
-              </DropdownMenuItem>
-              {personas?.map(persona => (
-                <DropdownMenuItem
-                  key={persona.id}
-                  onClick={() => handlePersonaChange(persona.id)}
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  {persona.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      {/* Active Narrative Directives Bar */}
-      <AnimatePresence>
-        {directives.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-background/40 border-b border-border/20 backdrop-blur-sm overflow-hidden">
-            <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
-              <Zap className="h-2.5 w-2.5 fill-current" />
-              Directives:
-            </span>
-            {directives.map((d) => (
-              <Badge
-                key={d.id}
-                variant="outline"
-                className="pl-2 pr-1 py-0 h-5 gap-1 bg-primary/5 border-primary/20 text-primary/80 hover:bg-primary/10 transition-colors"
-                title={d.description}
+          {/* Character info - centered */}
+          <div className="flex-1 flex items-center justify-center gap-3">
+            <Avatar className="h-10 w-10 border-2 border-primary/40">
+              <AvatarImage src={character.avatarUrl} alt={character.name} />
+              <AvatarFallback
+                className="text-sm font-medium text-white"
+                style={{ backgroundColor: getAvatarColor(character.name) }}
               >
-                <span className="text-[10px] font-medium leading-none truncate max-w-[120px]">
-                  {d.description.length > 30 ? d.description.slice(0, 30) + '...' : d.description}
-                </span>
-                <button
-                  onClick={() => removeDirective(d.id)}
-                  className="hover:bg-primary/20 rounded-full p-0.5"
-                  aria-label="Remove directive"
+                {characterInitials}
+              </AvatarFallback>
+            </Avatar>
+            <h1 className="text-lg font-semibold">{character.name}</h1>
+          </div>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-2">
+
+            {/* Environment Settings Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Background Settings</DropdownMenuLabel>
+                <div className="flex items-center justify-between px-2 py-2 gap-4">
+                  <Label htmlFor="bg-toggle" className="text-sm">Show Backgrounds</Label>
+                  <Switch
+                    id="bg-toggle"
+                    checked={uiSettings.showChatBackgrounds}
+                    onCheckedChange={(checked) => updateUiSettings({ showChatBackgrounds: checked })}
+                  />
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Environment (Debug)</DropdownMenuLabel>
+                <div className="grid grid-cols-2 gap-2 p-2">
+                  <select
+                    title="Location"
+                    className="text-xs bg-muted p-1 rounded"
+                    value={worldState.location}
+                    onChange={(e) => setWorldState(prev => ({ ...prev, location: e.target.value as WorldState['location'] }))}
+                  >
+                    <option value="indoor">Indoor</option>
+                    <option value="outdoor">Outdoor</option>
+                    <option value="urban">Urban</option>
+                    <option value="nature">Nature</option>
+                    <option value="fantasy">Fantasy</option>
+                  </select>
+                  <select
+                    title="Time"
+                    className="text-xs bg-muted p-1 rounded"
+                    value={worldState.timeOfDay}
+                    onChange={(e) => setWorldState(prev => ({ ...prev, timeOfDay: e.target.value as WorldState['timeOfDay'] }))}
+                  >
+                    <option value="day">Day</option>
+                    <option value="night">Night</option>
+                  </select>
+                  <select
+                    title="Mood"
+                    className="text-xs bg-muted p-1 rounded col-span-2"
+                    value={worldState.mood}
+                    onChange={(e) => setWorldState(prev => ({ ...prev, mood: e.target.value as WorldState['mood'] }))}
+                  >
+                    <option value="neutral">Neutral</option>
+                    <option value="romantic">Romantic</option>
+                    <option value="tense">Tense</option>
+                    <option value="mysterious">Mysterious</option>
+                    <option value="peaceful">Peaceful</option>
+                  </select>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <SessionPicker
+              sessions={sessions ?? []}
+              currentSessionId={sessionId}
+              onSelectSession={handleSelectSession}
+              onNewSession={handleNewSession}
+              isLoading={createSession.isPending}
+            />
+
+            <MemoriesPanel
+              characterId={characterId!}
+              personaId={activePersonaId}
+            />
+
+            <NarrativeDirectivesPopover
+              directives={directives}
+              addFromTemplate={addFromTemplate}
+              removeDirective={removeDirective}
+            />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
+                  <User className="h-4 w-4" />
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {activePersona?.name ?? 'You'}
+                  </Badge>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={() => handlePersonaChange(undefined)}>
+                  <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                  No Persona (You)
+                </DropdownMenuItem>
+                {personas?.map(persona => (
+                  <DropdownMenuItem
+                    key={persona.id}
+                    onClick={() => handlePersonaChange(persona.id)}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    {persona.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        {/* Active Narrative Directives Bar */}
+        <AnimatePresence>
+          {directives.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-background/40 border-b border-border/20 backdrop-blur-sm overflow-hidden">
+              <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
+                <Zap className="h-2.5 w-2.5 fill-current" />
+                Directives:
+              </span>
+              {directives.map((d) => (
+                <Badge
+                  key={d.id}
+                  variant="outline"
+                  className="pl-2 pr-1 py-0 h-5 gap-1 bg-primary/5 border-primary/20 text-primary/80 hover:bg-primary/10 transition-colors"
+                  title={d.description}
                 >
-                  <X className="h-2 w-2" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
-      </AnimatePresence>
+                  <span className="text-[10px] font-medium leading-none truncate max-w-[120px]">
+                    {d.description.length > 30 ? d.description.slice(0, 30) + '...' : d.description}
+                  </span>
+                  <button
+                    onClick={() => removeDirective(d.id)}
+                    className="hover:bg-primary/20 rounded-full p-0.5"
+                    aria-label="Remove directive"
+                  >
+                    <X className="h-2 w-2" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
 
-      {/* Messages */}
-      <ScrollArea
-        ref={scrollRef}
-        className="flex-1"
-        onScrollCapture={handleScroll}
-      >
-        {loadingMessages ? (
-          <ChatLoadingSkeleton />
-        ) : (
-          <div className="py-4 max-w-3xl mx-auto">
-            {messages.map(message => (
-              <ChatMessageBubble
-                key={message.id}
-                message={message}
-                character={character}
-                persona={activePersona}
-                onToggleCanon={handleToggleCanon}
-                onEdit={handleEdit}
-                onRegenerate={message.role === 'character' ? handleRegenerate : undefined}
-              />
-            ))}
-            <AnimatePresence>
-              {isTyping && <TypingIndicator characterName={character.name} />}
-            </AnimatePresence>
-          </div>
-        )}
-      </ScrollArea>
+        {/* Messages */}
+        <ScrollArea
+          ref={scrollRef}
+          className="flex-1"
+          onScrollCapture={handleScroll}
+        >
+          {loadingMessages ? (
+            <ChatLoadingSkeleton />
+          ) : (
+            <div className="py-4 max-w-3xl mx-auto">
+              {messages.map(message => (
+                <ChatMessageBubble
+                  key={message.id}
+                  message={message}
+                  character={character}
+                  persona={activePersona}
+                  onToggleCanon={handleToggleCanon}
+                  onEdit={handleEdit}
+                  onRegenerate={message.role === 'character' ? handleRegenerate : undefined}
+                />
+              ))}
+              <AnimatePresence>
+                {isTyping && <TypingIndicator characterName={character.name} />}
+              </AnimatePresence>
+            </div>
+          )}
+        </ScrollArea>
 
-      {/* Scroll to bottom button */}
-      <ScrollToBottomButton visible={showScrollButton} onClick={scrollToBottom} />
+        {/* Scroll to bottom button */}
+        <ScrollToBottomButton visible={showScrollButton} onClick={scrollToBottom} />
 
-      {/* Input */}
-      <ChatInput
-        onSend={handleSend}
-        isLoading={addMessage.isPending || isTyping}
-        placeholder={`Message ${character.name}...`}
-        inputRef={chatInputRef}
-        onGenerateMessage={handleGenerateUserMessage}
-        onRegenerateUserMessage={handleRegenerateUserMessage}
-        hasUserMessages={messages.some(m => m.role === 'user')}
-      />
+        {/* Input */}
+        <ChatInput
+          onSend={handleSend}
+          isLoading={addMessage.isPending || isTyping}
+          placeholder={`Message ${character.name}...`}
+          inputRef={chatInputRef}
+          onGenerateMessage={handleGenerateUserMessage}
+          onRegenerateUserMessage={handleRegenerateUserMessage}
+          hasUserMessages={messages.some(m => m.role === 'user')}
+        />
 
-      {/* Edit Message Dialog */}
-      <Dialog open={!!editingMessageId} onOpenChange={() => setEditingMessageId(null)}>
-        <DialogContent className="max-w-2xl border-border bg-background">
-          <DialogHeader>
-            <DialogTitle>Edit Message</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="min-h-[150px] bg-muted/50"
-            placeholder="Edit your message..."
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditingMessageId(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMessage.isPending || !editContent.trim()}>
-              {updateMessage.isPending ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Edit Message Dialog */}
+        <Dialog open={!!editingMessageId} onOpenChange={() => setEditingMessageId(null)}>
+          <DialogContent className="max-w-2xl border-border bg-background">
+            <DialogHeader>
+              <DialogTitle>Edit Message</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-[150px] bg-muted/50"
+              placeholder="Edit your message..."
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setEditingMessageId(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={updateMessage.isPending || !editContent.trim()}>
+                {updateMessage.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
+
