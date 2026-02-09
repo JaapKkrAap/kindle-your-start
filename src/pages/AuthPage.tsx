@@ -14,10 +14,36 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleDeveloperBypass = async () => {
+    setLoading(true);
+    try {
+      // Use a persistent developer guest account
+      const devEmail = 'dev@guest.local';
+      const devPassword = 'dev-guest-2024';
+
+      const { error } = await signIn(devEmail, devPassword);
+      if (error) {
+        toast({
+          title: 'Developer bypass failed',
+          description: 'Guest account not found. Please sign up normally.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Developer mode',
+          description: 'Logged in as guest developer',
+        });
+        navigate('/');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +135,7 @@ export default function AuthPage() {
                   </div>
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -143,15 +169,26 @@ export default function AuthPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <Button 
-                type="submit" 
-                className="w-full glow-primary" 
+            <CardFooter className="flex flex-col gap-3">
+              <Button
+                type="submit"
+                className="w-full glow-primary"
                 disabled={loading}
               >
                 {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
               </Button>
-              
+
+              {/* Developer Guest Bypass */}
+              <Button
+                type="button"
+                onClick={handleDeveloperBypass}
+                variant="outline"
+                className="w-full border-primary/30 text-primary hover:bg-primary/10"
+                disabled={loading}
+              >
+                🔓 Developer Guest Access
+              </Button>
+
               <p className="text-sm text-center text-muted-foreground">
                 {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button

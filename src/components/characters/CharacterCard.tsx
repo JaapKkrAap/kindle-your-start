@@ -55,12 +55,15 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
 
           {/* Info overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/95 to-transparent p-4">
-            <h3 className="font-display text-lg font-semibold text-foreground">
-              {character.name}
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-              {character.personalityTraits.slice(0, 3).join(' • ')}
-            </p>
+            {/* Character info */}
+            <div className="space-y-1">
+              <h3 className="font-display text-lg font-semibold text-foreground truncate" title={character.name}>
+                {character.name}
+              </h3>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {character.personalityTraits.slice(0, 3).join(' • ')}
+              </p>
+            </div>
             {character.lastPlayedAt && (
               <p className="mt-2 text-xs text-muted-foreground/70">
                 Last played: {formatRelativeTime(character.lastPlayedAt)}

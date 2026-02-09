@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Gaming/Fantasy Dark Theme - Lime Green Accent */
+/* Gaming/Fantasy Dark Theme - Deep Wine Maroon Accent */
 
 @layer base {
   :root {
@@ -15,8 +15,8 @@
     --popover: 220 18% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 82 85% 55%;
-    --primary-foreground: 220 20% 10%;
+    --primary: 0 65% 45%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 15% 16%;
     --secondary-foreground: 0 0% 90%;
@@ -32,34 +32,34 @@
 
     --border: 220 15% 20%;
     --input: 220 15% 18%;
-    --ring: 264 48% 64%;
+    --ring: 0 65% 45%;
 
     --radius: 0.75rem;
 
     /* Gaming theme colors */
-    --lime: 82 85% 55%;
-    --lime-glow: 82 90% 60%;
+    --maroon: 0 65% 45%;
+    --maroon-glow: 0 70% 50%;
     --slate-dark: 220 20% 12%;
     --slate-medium: 220 15% 20%;
     --slate-light: 220 10% 30%;
 
     /* Gradients */
-    --gradient-lime: linear-gradient(135deg, hsl(82 85% 55%), hsl(82 70% 45%));
+    --gradient-maroon: linear-gradient(135deg, hsl(0 65% 45%), hsl(0 55% 35%));
     --gradient-dark: linear-gradient(180deg, hsl(220 20% 10%), hsl(220 25% 8%));
 
     /* Shadows */
-    --shadow-glow: 0 0 20px hsl(82 85% 55% / 0.3);
+    --shadow-glow: 0 0 20px hsl(0 65% 45% / 0.3);
     --shadow-deep: 0 8px 32px hsl(220 25% 5% / 0.6);
     --shadow-subtle: 0 2px 8px hsl(220 25% 5% / 0.4);
 
     --sidebar-background: 220 20% 11%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 82 85% 55%;
-    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-primary: 0 65% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 15% 18%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 82 85% 55%;
+    --sidebar-ring: 0 65% 45%;
   }
 
   .dark {
@@ -69,8 +69,8 @@
     --card-foreground: 0 0% 95%;
     --popover: 220 18% 12%;
     --popover-foreground: 0 0% 95%;
-    --primary: 82 85% 55%;
-    --primary-foreground: 220 20% 10%;
+    --primary: 0 65% 45%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 220 15% 16%;
     --secondary-foreground: 0 0% 90%;
     --muted: 220 15% 18%;
@@ -81,15 +81,15 @@
     --destructive-foreground: 0 0% 100%;
     --border: 220 15% 20%;
     --input: 220 15% 18%;
-    --ring: 82 85% 55%;
+    --ring: 0 65% 45%;
     --sidebar-background: 220 20% 11%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 82 85% 55%;
-    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-primary: 0 65% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 15% 18%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 82 85% 55%;
+    --sidebar-ring: 0 65% 45%;
   }
 }
 
@@ -136,7 +136,7 @@
     box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
   }
 
-  /* User message bubble - lime green */
+  /* User message bubble - maroon */
   .bubble-user {
     @apply bg-primary text-primary-foreground;
     box-shadow: 0 2px 12px hsl(var(--primary) / 0.25);

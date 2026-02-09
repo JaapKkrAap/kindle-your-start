@@ -108,10 +108,13 @@ export function ChatMessageBubble({
         {/* Bubble */}
         <div
           className={cn(
-            'prose-roleplay rounded-2xl px-4 py-3 relative',
-            isUser ? 'bubble-user' : 'bubble-character',
-            message.isCanon && !isUser && 'border-l-2 border-l-primary'
+            'rounded-2xl px-4 py-3 max-w-[85%] shadow-sm transition-all duration-200',
+            isUser
+              ? 'bubble-user ml-auto'
+              : 'bubble-character mr-auto',
+            message.isCanon && 'canon-marker'
           )}
+          style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
         >
           <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
             {renderContent(message.content)}
