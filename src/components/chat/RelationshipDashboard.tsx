@@ -106,11 +106,7 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
                                     </Tooltip>
                                     <span className="text-foreground/80">{attr.value}%</span>
                                 </div>
-                                {/* Use a custom progress implementation to allow dynamic color classes without inline styles on the container if possible, 
-                                    but here we use the colorClass to set the background of the inner bar. 
-                                    Since the Shadcn Progress component doesn't easily expose the inner indicator class via props in a standard way (it uses bg-primary),
-                                    we will implement a simple accessible progress bar here to have full control over the color via Tailwind classes.
-                                */}
+                                {/* Dynamic width requires inline style - calculated at runtime */}
                                 <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
                                     <div
                                         className={cn("h-full transition-all duration-500", colorClass)}
