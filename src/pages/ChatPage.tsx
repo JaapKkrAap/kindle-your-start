@@ -483,18 +483,20 @@ export default function ChatPage() {
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) throw new Error('No user message to regenerate');
 
+    // Build chat history up to (but NOT including) the last user message
+    // This gives AI context of what led up to the user's message
     const chatHistory = messages
       .slice(0, messages.indexOf(lastUserMessage))
       .map(m => ({ role: m.role, content: m.content }));
 
-
-
+    // Pass the original message and instruction together to the user generation prompt
+    // This prevents AI from seeing a 'user' message in history and responding as character
+    const combinedInstruction = instruction
+      ? `Rewrite this message following this guidance: "${instruction}"\n\nOriginal message to rewrite:\n"${lastUserMessage.content}"`
+      : `Rewrite this message with the same intent but different wording:\n\n"${lastUserMessage.content}"`;
 
     const response = await sendChatMessage({
-      messages: [
-        ...chatHistory,
-        { role: 'user', content: lastUserMessage.content },
-      ],
+      messages: chatHistory, // Don't include the last user message here
       character,
       persona: activePersona,
       memories: memories?.map(m => m.content) ?? [],
@@ -505,7 +507,7 @@ export default function ChatPage() {
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
       mode: 'generate_user_message',
-      userInstruction: instruction || `Regenerate this message with the same intent but different wording`,
+      userInstruction: combinedInstruction,
     });
 
     return response.content;

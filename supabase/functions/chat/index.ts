@@ -236,7 +236,9 @@ serve(async (req) => {
     const messages = [
       { role: "system", content: systemPrompt },
       ...body.messages
-        .filter(m => m.role !== "system") // Strip inline system hacks for user-gen mode
+        // Only strip inline system messages in user-gen mode to prevent character bleed
+        // In roleplay mode, keep system messages (e.g., regeneration guidance)
+        .filter(m => body.mode === "generate_user_message" ? m.role !== "system" : true)
         .map(m => ({
           role: m.role === 'character' ? 'assistant' : m.role,
           content: m.content,
