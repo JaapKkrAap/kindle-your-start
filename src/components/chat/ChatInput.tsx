@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -15,21 +16,25 @@ interface ChatInputProps {
   hasUserMessages?: boolean;
 }
 
-export function ChatInput({ 
-  onSend, 
-  isLoading, 
-  placeholder, 
+export function ChatInput({
+  onSend,
+  isLoading,
+  placeholder,
   inputRef,
   onGenerateMessage,
   onRegenerateUserMessage,
-  hasUserMessages 
+  hasUserMessages
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showGeneratePopover, setShowGeneratePopover] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [customInstruction, setCustomInstruction] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = inputRef || internalRef;
+
+  const MAX_LENGTH = 2000;
+  const showCounter = message.length > MAX_LENGTH * 0.8;
 
   // Auto-resize textarea
   useEffect(() => {
@@ -87,7 +92,10 @@ export function ChatInput({
   return (
     <div className="p-4 bg-background/60 backdrop-blur-sm">
       {/* Pill-shaped input container */}
-      <div className="pill-input flex items-end gap-2 px-3 py-2">
+      <div className={cn(
+        "pill-input flex items-end gap-2 px-3 py-2 transition-all duration-200",
+        isFocused && "ring-2 ring-primary/30 border-primary/50"
+      )}>
         {/* Generate message button */}
         {onGenerateMessage && (
           <Popover open={showGeneratePopover} onOpenChange={setShowGeneratePopover}>
@@ -117,7 +125,7 @@ export function ChatInput({
                   <Sparkles className="h-3 w-3 mr-2" />
                   Generate for me
                 </Button>
-                
+
                 {hasUserMessages && onRegenerateUserMessage && (
                   <>
                     <div className="border-t border-border/50 my-2" />
@@ -155,16 +163,28 @@ export function ChatInput({
         )}
 
         {/* Input */}
-        <Textarea
-          ref={textareaRef}
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? 'Type a message...'}
-          className="flex-1 min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 text-sm placeholder:text-muted-foreground/60"
-          disabled={isLoading}
-          rows={1}
-        />
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={message}
+            onChange={e => setMessage(e.target.value.slice(0, MAX_LENGTH))}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={placeholder ?? 'Type a message...'}
+            className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 text-sm placeholder:text-muted-foreground/60"
+            disabled={isLoading}
+            rows={1}
+          />
+          {showCounter && (
+            <div className={cn(
+              "absolute right-2 top-1 text-[10px] font-medium transition-colors",
+              message.length >= MAX_LENGTH ? "text-destructive" : "text-muted-foreground"
+            )}>
+              {message.length}/{MAX_LENGTH}
+            </div>
+          )}
+        </div>
 
         {/* Send button */}
         <Button

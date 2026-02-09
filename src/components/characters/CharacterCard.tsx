@@ -10,17 +10,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Character } from '@/types';
 import { cn } from '@/lib/utils';
+import { getAvatarProps } from '@/lib/avatar-utils';
 import { motion } from 'framer-motion';
-
-// Generate consistent color from name
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 55%, 45%)`;
-}
 
 interface CharacterCardProps {
   character: Character;
@@ -31,20 +22,16 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete }: CharacterCardProps) {
-  const initials = character.name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const { color, initials } = getAvatarProps(character.name);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="glass-card group relative overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10">
+      <Card className="glass-card group relative overflow-hidden transition-all duration-300 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/20">
         <CardContent className="p-0">
           {/* Portrait */}
           <div className="portrait-frame aspect-[3/4] bg-gradient-to-b from-muted to-background">
@@ -55,9 +42,9 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div 
+              <div
                 className="flex h-full w-full items-center justify-center"
-                style={{ backgroundColor: getAvatarColor(character.name) }}
+                style={{ backgroundColor: color }}
               >
                 <span className="text-5xl font-serif text-white/90">
                   {initials}
@@ -81,52 +68,57 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
             )}
           </div>
 
-        {/* Actions - higher z-index to stay above play overlay */}
-        <div className="absolute right-2 top-2 z-20 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40 bg-popover">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(character); }}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate(character); }}>
-                <Copy className="mr-2 h-4 w-4" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => { e.stopPropagation(); onDelete(character); }}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Play button overlay - exclude top area for dropdown */}
-        <button
-          onClick={() => onPlay(character)}
-          className="absolute inset-0 top-12 z-10 flex items-center justify-center bg-primary/0 opacity-0 transition-all group-hover:bg-primary/10 group-hover:opacity-100"
-        >
-          <div className="rounded-full bg-primary p-4 shadow-lg glow-primary">
-            <Play className="h-6 w-6 text-primary-foreground" />
+          {/* Actions - higher z-index to stay above play overlay */}
+          <div className="absolute right-2 top-2 z-20 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40 bg-popover">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(character); }}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate(character); }}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); onDelete(character); }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </button>
-      </CardContent>
-    </Card>
-  </motion.div>
-);
+
+          {/* Play button overlay - exclude top area for dropdown */}
+          <button
+            onClick={() => onPlay(character)}
+            aria-label={`Start roleplay with ${character.name}`}
+            className="absolute inset-0 top-12 z-10 flex items-center justify-center bg-primary/0 opacity-0 transition-all duration-300 group-hover:bg-primary/10 group-hover:opacity-100"
+          >
+            <motion.div
+              className="rounded-full bg-primary p-4 shadow-lg glow-primary"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Play className="h-6 w-6 text-primary-foreground" />
+            </motion.div>
+          </button>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
 }
 
 function formatRelativeTime(date: Date): string {

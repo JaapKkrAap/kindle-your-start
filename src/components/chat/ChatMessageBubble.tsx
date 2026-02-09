@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { getAvatarProps } from '@/lib/avatar-utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,16 +16,6 @@ interface ChatMessageBubbleProps {
   onToggleCanon: (id: string, isCanon: boolean) => void;
   onEdit: (id: string) => void;
   onRegenerate?: (id: string, instruction?: string) => void;
-}
-
-// Generate consistent color from name
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 55%, 45%)`;
 }
 
 export function ChatMessageBubble({
@@ -56,12 +47,7 @@ export function ChatMessageBubble({
 
   const displayName = isUser ? (persona?.name ?? 'You') : character.name;
   const avatarUrl = isUser ? persona?.avatarUrl : character.avatarUrl;
-  const initials = displayName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const { color, initials } = getAvatarProps(displayName);
 
   // Parse content to render italics for actions
   const renderContent = (content: string) => {
@@ -95,9 +81,9 @@ export function ChatMessageBubble({
           isUser ? 'border-primary/60' : 'border-accent'
         )}>
           <AvatarImage src={avatarUrl} alt={displayName} />
-          <AvatarFallback 
+          <AvatarFallback
             className="text-sm font-medium text-white"
-            style={{ backgroundColor: getAvatarColor(displayName) }}
+            style={{ backgroundColor: color }}
           >
             {initials}
           </AvatarFallback>
@@ -130,7 +116,7 @@ export function ChatMessageBubble({
           <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
             {renderContent(message.content)}
           </p>
-          
+
           {/* Timestamp inside bubble */}
           <div className={cn(
             'flex items-center gap-1 mt-2 text-[10px]',
@@ -167,9 +153,9 @@ export function ChatMessageBubble({
             Edit
           </Button>
           {!isUser && onRegenerate && (
-            <RegeneratePopover 
-              messageId={message.id} 
-              onRegenerate={onRegenerate} 
+            <RegeneratePopover
+              messageId={message.id}
+              onRegenerate={onRegenerate}
             />
           )}
         </div>
@@ -179,11 +165,11 @@ export function ChatMessageBubble({
 }
 
 // Regenerate popover component
-function RegeneratePopover({ 
-  messageId, 
-  onRegenerate 
-}: { 
-  messageId: string; 
+function RegeneratePopover({
+  messageId,
+  onRegenerate
+}: {
+  messageId: string;
   onRegenerate: (id: string, instruction?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -198,9 +184,9 @@ function RegeneratePopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3 mr-1" />
