@@ -15,28 +15,24 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleDeveloperBypass = async () => {
+  const handleGuestAccess = async () => {
     setLoading(true);
     try {
-      // Use a persistent developer guest account
-      const devEmail = 'dev@guest.local';
-      const devPassword = 'dev-guest-2024';
-
-      const { error } = await signIn(devEmail, devPassword);
+      const { error } = await signInAnonymously();
       if (error) {
         toast({
-          title: 'Developer bypass failed',
-          description: 'Guest account not found. Please sign up normally.',
+          title: 'Guest access failed',
+          description: error.message,
           variant: 'destructive',
         });
       } else {
         toast({
-          title: 'Developer mode',
-          description: 'Logged in as guest developer',
+          title: 'Welcome!',
+          description: 'Logged in as guest.',
         });
         navigate('/');
       }
@@ -178,15 +174,15 @@ export default function AuthPage() {
                 {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
               </Button>
 
-              {/* Developer Guest Bypass */}
+              {/* Guest Access */}
               <Button
                 type="button"
-                onClick={handleDeveloperBypass}
+                onClick={handleGuestAccess}
                 variant="outline"
                 className="w-full border-primary/30 text-primary hover:bg-primary/10"
                 disabled={loading}
               >
-                🔓 Developer Guest Access
+                Continue as Guest
               </Button>
 
               <p className="text-sm text-center text-muted-foreground">
