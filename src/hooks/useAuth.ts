@@ -51,6 +51,11 @@ export function useAuth() {
     return { data, error };
   }, []);
 
+  const signInAnonymously = useCallback(async () => {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    return { data, error };
+  }, []);
+
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     return { error };
@@ -62,6 +67,7 @@ export function useAuth() {
     loading,
     signUp,
     signIn,
+    signInAnonymously,
     signOut,
     isAuthenticated: !!user,
   };
