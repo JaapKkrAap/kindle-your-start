@@ -131,6 +131,34 @@ export interface CharacterFormData {
   firstMessage: string;
 }
 
+export type ContentRating = 'romantic' | 'spicy' | 'explicit';
+
+export interface SeedCharacterTemplate {
+  templateId: string;
+  name: string;
+  age: number;
+  category: 'Dominant' | 'Obsessive' | 'Forbidden Tension' | 'Soft & Devoted' | 'Supernatural' | 'Office Fantasy';
+  contentRating: ContentRating;
+  popularity: string;
+  previewLine: string;
+  tags: string[];
+  personalityTraits: string[];
+  backstory: string;
+  speechStyle: string;
+  behavioralBoundaries: string;
+  firstMessage: string;
+  portraitPath: string;
+  accent: string;
+}
+
+export interface ProviderCapabilityMetadata {
+  provider: AIProvider;
+  label: string;
+  explicitCapable: boolean;
+  description: string;
+  explicitModeNote: string;
+}
+
 export interface UserPersonaFormData {
   name: string;
   avatarUrl?: string;

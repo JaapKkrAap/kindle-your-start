@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +18,7 @@ import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { PageShell } from '@/components/layout/PageShell';
+import { providerCapabilities } from '@/data/seedCharacters';
 import type { AIProvider } from '@/types';
 import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
 
@@ -141,17 +143,18 @@ export default function SettingsPage() {
                   AI Provider Selection
                 </CardTitle>
                 <CardDescription>
-                  Choose which server-side provider powers chat responses
+                  Choose the provider and understand which content modes it can handle
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-3 md:grid-cols-3">
                   {[
-                    { id: 'openai' as AIProvider, icon: Bot, label: 'OpenAI', hint: 'Balanced cloud models' },
-                    { id: 'openrouter' as AIProvider, icon: Cloud, label: 'OpenRouter', hint: 'Multi-model routing' },
-                    { id: 'lmstudio' as AIProvider, icon: Server, label: 'LM Studio', hint: 'Local inference' },
+                    { id: 'openai' as AIProvider, icon: Bot },
+                    { id: 'openrouter' as AIProvider, icon: Cloud },
+                    { id: 'lmstudio' as AIProvider, icon: Server },
                   ].map(provider => {
                     const Icon = provider.icon;
+                    const capability = providerCapabilities[provider.id];
                     const active = localSettings.provider === provider.id;
                     return (
                       <button
@@ -164,9 +167,14 @@ export default function SettingsPage() {
                             : 'border-border/70 bg-muted/25 hover:border-primary/35 hover:bg-muted/40'
                         }`}
                       >
-                        <Icon className={`mb-3 h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
-                        <p className="font-medium">{provider.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{provider.hint}</p>
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <Icon className={`h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <Badge variant="outline" className={capability.explicitCapable ? 'border-primary/30 text-primary' : 'border-border/70 text-muted-foreground'}>
+                            {capability.explicitCapable ? 'Explicit-capable' : 'Non-explicit'}
+                          </Badge>
+                        </div>
+                        <p className="font-medium">{capability.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{capability.description}</p>
                       </button>
                     );
                   })}
@@ -207,6 +215,11 @@ export default function SettingsPage() {
                 {/* Provider-specific settings */}
                 {localSettings.provider === 'lmstudio' ? (
                   <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                      <p className="text-sm leading-6 text-primary">
+                        LM Studio can power explicit mode when your local endpoint and loaded model are configured for adult fictional roleplay.
+                      </p>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="endpoint">LM Studio Endpoint</Label>
                       <Input
@@ -235,7 +248,7 @@ export default function SettingsPage() {
                   <div className="space-y-4 border-t border-border/60 pt-4">
                     <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
                       <p className="text-sm leading-6 text-primary">
-                        OpenRouter uses the server-side OPENROUTER_API_KEY. Select your preferred model below.
+                        OpenRouter uses the server-side OPENROUTER_API_KEY. Explicit mode can run here when your configured model allows adult fictional erotica.
                       </p>
                     </div>
 
@@ -260,9 +273,9 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 border-t border-border/60 pt-4">
-                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
-                      <p className="text-sm leading-6 text-primary">
-                        OpenAI uses the server-side OPENAI_API_KEY. Select your preferred model below.
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                      <p className="text-sm leading-6 text-amber-200">
+                        OpenAI uses the server-side OPENAI_API_KEY for romantic, SFW, and non-explicit flows. Explicit mode is blocked from OpenAI routing.
                       </p>
                     </div>
 

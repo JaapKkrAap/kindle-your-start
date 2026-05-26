@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
-import { ChatInput } from '@/components/chat/ChatInput';
+import { ChatInput, type SceneMomentumAction } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
@@ -37,6 +37,12 @@ import { useUISettings } from '@/hooks/useUISettings';
 import { useBackgroundSelector } from '@/hooks/useBackgroundSelector';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+import {
+  canProviderHandleExplicit,
+  contentRatingLabels,
+  getSeedCharacterRating,
+  inferContentRatingFromBackstory,
+} from '@/data/seedCharacters';
 import { sendChatMessage } from '@/lib/ai';
 import {
   DropdownMenu,
@@ -66,6 +72,46 @@ function getAvatarColor(name: string): string {
   const hue = Math.abs(hash) % 360;
   return `hsl(${hue}, 55%, 45%)`;
 }
+
+const SCENE_ACTIONS: Array<SceneMomentumAction & { instruction: string }> = [
+  {
+    id: 'continue',
+    label: 'Continue',
+    instruction: 'Continue the current scene naturally, preserving character voice and emotional continuity.',
+  },
+  {
+    id: 'escalate',
+    label: 'Escalate',
+    instruction: 'Increase emotional tension and stakes while respecting established boundaries and consent.',
+  },
+  {
+    id: 'softer',
+    label: 'Softer',
+    instruction: 'Make the next beat gentler, more reassuring, and emotionally safe.',
+  },
+  {
+    id: 'romantic',
+    label: 'More romantic',
+    instruction: 'Lean into romantic intimacy, affection, tenderness, and attachment without making it explicit.',
+  },
+  {
+    id: 'explicit',
+    label: 'More explicit',
+    explicit: true,
+    instruction: 'If all participants are fictional consenting adults and the configured provider allows it, intensify the adult erotic direction while respecting stated limits and blocked content boundaries.',
+  },
+  {
+    id: 'surprise',
+    label: 'Surprise me',
+    instruction: 'Introduce a surprising but character-consistent turn that gives the user a strong next choice.',
+  },
+];
+
+const SCENE_ACTION_BUTTONS: SceneMomentumAction[] = SCENE_ACTIONS.map(({ id, label, explicit }) => ({
+  id,
+  label,
+  explicit,
+}));
 
 export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
@@ -124,6 +170,27 @@ export default function ChatPage() {
   const activePersona = personas?.find(p => p.id === activePersonaId);
   const isCreatingSession = useRef(false);
   const lastExtractionMessageId = useRef<string | null>(null);
+  const contentRating = inferContentRatingFromBackstory(character?.backstory)
+    ?? getSeedCharacterRating(characterId)
+    ?? 'romantic';
+  const explicitProviderAvailable = canProviderHandleExplicit(aiSettings?.provider);
+  const explicitProviderBlocked = contentRating === 'explicit' && aiSettings?.provider === 'openai';
+
+  const showExplicitProviderBlockedToast = () => {
+    toast({
+      title: 'Switch provider for explicit mode',
+      description: 'OpenAI is reserved for non-explicit flows. Use OpenRouter or LM Studio for explicit-rated characters or explicit scene actions.',
+      variant: 'destructive',
+    });
+  };
+
+  const canUseCurrentProviderForContent = () => {
+    if (explicitProviderBlocked) {
+      showExplicitProviderBlockedToast();
+      return false;
+    }
+    return true;
+  };
 
   // Keyboard shortcut: Cmd/Ctrl+K to focus input
   useEffect(() => {
@@ -268,6 +335,7 @@ export default function ChatPage() {
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
+    if (!canUseCurrentProviderForContent()) return;
 
     // Check if this is the first user message - auto-title
     const isFirstUserMessage = !messages.some(m => m.role === 'user');
@@ -306,6 +374,7 @@ export default function ChatPage() {
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
+        contentRating,
       });
 
       await addMessage.mutateAsync({
@@ -401,6 +470,7 @@ export default function ChatPage() {
 
   const handleRegenerate = async (id: string, instruction?: string) => {
     if (!sessionId || !character || !aiSettings || isTyping) return;
+    if (!canUseCurrentProviderForContent()) return;
 
     const messageIndex = messages.findIndex(m => m.id === id);
     if (messageIndex === -1) return;
@@ -444,6 +514,7 @@ export default function ChatPage() {
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
+        contentRating,
       });
 
       await addMessage.mutateAsync({
@@ -470,6 +541,9 @@ export default function ChatPage() {
 
   const handleGenerateUserMessage = async (): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
+    if (!canUseCurrentProviderForContent()) {
+      throw new Error('Switch to OpenRouter or LM Studio for explicit mode.');
+    }
 
     const chatHistory = messages.map(m => ({
       role: m.role,
@@ -487,6 +561,7 @@ export default function ChatPage() {
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      contentRating,
       mode: 'generate_user_message',
     });
 
@@ -495,6 +570,9 @@ export default function ChatPage() {
 
   const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
+    if (!canUseCurrentProviderForContent()) {
+      throw new Error('Switch to OpenRouter or LM Studio for explicit mode.');
+    }
 
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) throw new Error('No user message to regenerate');
@@ -522,11 +600,72 @@ export default function ChatPage() {
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      contentRating,
       mode: 'generate_user_message',
       userInstruction: combinedInstruction,
     });
 
     return response.content;
+  };
+
+  const handleSceneAction = async (actionId: string) => {
+    if (!sessionId || !character || !aiSettings || isTyping) return;
+
+    const action = SCENE_ACTIONS.find(item => item.id === actionId);
+    if (!action) return;
+
+    if (action.explicit && !explicitProviderAvailable) {
+      showExplicitProviderBlockedToast();
+      return;
+    }
+
+    if (!canUseCurrentProviderForContent()) return;
+
+    const chatHistory = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    chatHistory.push({
+      role: 'system',
+      content: `[Scene direction: ${action.instruction}]`,
+    });
+
+    setIsTyping(true);
+
+    try {
+      const response = await sendChatMessage({
+        messages: chatHistory,
+        character,
+        persona: activePersona,
+        memories: memories?.map(m => m.content) ?? [],
+        canonEvents: canonEvents?.map(e => ({
+          title: e.title,
+          description: e.description,
+        })) ?? [],
+        narrativeDirectives: getDirectivesForApi(),
+        settings: aiSettings,
+        contentRating,
+      });
+
+      await addMessage.mutateAsync({
+        sessionId,
+        characterId: character.id,
+        personaId: activePersonaId,
+        role: 'character',
+        content: response.content,
+      });
+
+      maybeExtractMemories();
+    } catch (error) {
+      toast({
+        title: 'Scene action failed',
+        description: error instanceof Error ? error.message : 'The scene could not continue.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   if (loadingCharacter || loadingSessions) {
@@ -615,9 +754,19 @@ export default function ChatPage() {
             </Avatar>
             <div className="min-w-0 text-center">
               <h1 className="truncate text-base font-semibold sm:text-lg">{character.name}</h1>
-              <p className="hidden text-xs text-muted-foreground sm:block">
-                {activePersona?.name ? `As ${activePersona.name}` : 'Roleplay session'}
-              </p>
+              <div className="hidden items-center justify-center gap-1.5 sm:flex">
+                <p className="text-xs text-muted-foreground">
+                  {activePersona?.name ? `As ${activePersona.name}` : 'Roleplay session'}
+                </p>
+                <Badge variant="outline" className="h-5 border-border/70 px-1.5 text-[10px] text-muted-foreground">
+                  {contentRatingLabels[contentRating]}
+                </Badge>
+                {explicitProviderBlocked && (
+                  <Badge className="h-5 border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] text-amber-200 hover:bg-amber-500/10">
+                    Provider switch needed
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 
@@ -799,6 +948,10 @@ export default function ChatPage() {
           onGenerateMessage={handleGenerateUserMessage}
           onRegenerateUserMessage={handleRegenerateUserMessage}
           hasUserMessages={messages.some(m => m.role === 'user')}
+          sceneActions={SCENE_ACTION_BUTTONS}
+          onSceneAction={handleSceneAction}
+          sceneActionsDisabled={addMessage.isPending || isTyping}
+          explicitActionsDisabled={!explicitProviderAvailable}
         />
 
         {/* Edit Message Dialog */}

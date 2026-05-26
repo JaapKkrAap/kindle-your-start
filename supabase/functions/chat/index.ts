@@ -48,6 +48,7 @@ const ChatRequestSchema = z.object({
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
   mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
   userInstruction: z.string().max(500).optional(),
+  contentRating: z.enum(["romantic", "spicy", "explicit"]).optional(),
   provider: z.enum(["lmstudio", "openrouter", "openai"]),
   lmstudioEndpoint: z.string().max(200).optional(),
   lmstudioModel: z.string().max(100).optional(),
@@ -128,6 +129,10 @@ If input is unclear, contradictory, or minimal:
 - Move the scene forward logically.
 - Maintain emotional and narrative continuity.
 </fail_safe>`;
+
+  prompt += `\n\n<adult_content_boundaries>
+If romantic or sexual content appears, every participant must be a fictional consenting adult over 18. Never include minors, incest, bestiality, sexual violence, coercion, non-consent, intoxication-based consent, or illegal sexual content.
+</adult_content_boundaries>`;
 
   prompt += `\n\n<active_character>
 Name: ${character.name}
@@ -229,6 +234,13 @@ serve(async (req) => {
     }
 
     const body = validationResult.data;
+
+    if (body.contentRating === "explicit" && body.provider === "openai") {
+      return new Response(
+        JSON.stringify({ error: "Explicit mode is blocked for OpenAI. Switch to OpenRouter or LM Studio for explicit-rated chats." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const systemPrompt = body.mode === "generate_user_message"
       ? buildUserGenerationPrompt(body)

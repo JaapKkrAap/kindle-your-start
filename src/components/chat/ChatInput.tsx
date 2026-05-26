@@ -6,6 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Send, Wand2, Loader2, Sparkles } from 'lucide-react';
 
+export interface SceneMomentumAction {
+  id: string;
+  label: string;
+  explicit?: boolean;
+}
+
 interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading?: boolean;
@@ -14,6 +20,10 @@ interface ChatInputProps {
   onGenerateMessage?: () => Promise<string>;
   onRegenerateUserMessage?: (instruction?: string) => Promise<string>;
   hasUserMessages?: boolean;
+  sceneActions?: SceneMomentumAction[];
+  onSceneAction?: (actionId: string) => void;
+  sceneActionsDisabled?: boolean;
+  explicitActionsDisabled?: boolean;
 }
 
 export function ChatInput({
@@ -23,7 +33,11 @@ export function ChatInput({
   inputRef,
   onGenerateMessage,
   onRegenerateUserMessage,
-  hasUserMessages
+  hasUserMessages,
+  sceneActions,
+  onSceneAction,
+  sceneActionsDisabled,
+  explicitActionsDisabled,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showGeneratePopover, setShowGeneratePopover] = useState(false);
@@ -91,6 +105,33 @@ export function ChatInput({
 
   return (
     <div className="border-t border-border/60 bg-background/86 p-3 backdrop-blur-xl sm:p-4">
+      {sceneActions?.length ? (
+        <div className="mx-auto mb-3 flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Scene momentum
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {sceneActions.map(action => {
+              const disabled = sceneActionsDisabled || (action.explicit && explicitActionsDisabled);
+              return (
+                <Button
+                  key={action.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg border-border/70 bg-background/55 px-3 text-xs hover:border-primary/35 hover:bg-primary/10"
+                  disabled={disabled}
+                  title={action.explicit && explicitActionsDisabled ? 'Switch to OpenRouter or LM Studio for explicit mode' : undefined}
+                  onClick={() => onSceneAction?.(action.id)}
+                >
+                  {action.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {/* Pill-shaped input container */}
       <div className={cn(
         "pill-input mx-auto flex max-w-3xl items-end gap-2 px-3 py-2 transition-all duration-200",
