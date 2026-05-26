@@ -1,101 +1,72 @@
+# Relationship & Memory Progression
 
+## Doel
+Maak het bestaande relationship-systeem voelbaar in elke message. Nu wordt `trust/affection/tension/respect` wel getoond maar **niet aan de AI gevoed** — dus de character verandert nooit echt. Dit fixen + moods + intimate memory cards toevoegen.
 
-# AI Character Generator
+## Wat we bouwen
 
-## Overview
+### 1. Character mood engine
+Afgeleid uit relationship state + recente messages. Mogelijke moods:
+`affectionate`, `playful`, `needy`, `jealous`, `cold`, `tense`, `protective`, `teasing`, `withdrawn`, `obsessed`, `neutral`.
 
-Add a "Generate Character" button to the character creation form that uses AI to auto-fill empty fields based on existing input. If everything is empty, the AI asks up to 3 quick questions first via a small inline chat. If some fields are filled, it respects them and generates the rest.
+Regels (voorbeeld):
+- high affection + low tension → `affectionate` / `playful`
+- high affection + high tension → `jealous` / `needy`
+- low trust + tension spike → `cold` / `withdrawn`
+- high respect + medium tension → `protective`
 
-## UX Flow
+Mood wordt opgeslagen op `relationship_states` (nieuwe kolom `current_mood`) en herberekend na elke AI reactie.
 
-### Scenario A: All fields empty
-1. User clicks "Generate Character" (sparkle icon button at top of form)
-2. A small inline panel appears with up to 3 short questions (genre, character type, tone)
-3. User answers, clicks "Generate"
-4. AI fills all fields automatically
+### 2. Auto-update relationship state
+De bestaande `extract-memories` edge function draait elke 6 messages. We breiden hem uit met een tweede taak: een lichte AI-call die `trust/affection/tension/respect` deltas teruggeeft (-10..+10 per metric) op basis van de laatste turns. Resultaat wordt geclamped 0–100 en opgeslagen.
 
-### Scenario B: Some fields filled
-1. User has already entered e.g. a name and some traits
-2. Clicks "Generate Character"
-3. AI reads existing input, generates the remaining fields
-4. Existing values are preserved; only empty fields get filled
+### 3. Intimate memory cards
+Geen nieuwe tabel nodig — bestaande `memories` heeft `category`. We voegen toe: `kink`, `promise`, `secret`, `favorite`. De extractor herkent deze expliciet. In de UI krijgen ze eigen iconen + sectie in `MemoriesPanel`.
 
-## Architecture
+### 4. Prompt-injectie (de echte impact)
+In `supabase/functions/chat/index.ts` voegen we een `<relationship_state>` blok toe aan de system prompt met:
+- Numerieke waarden + huidige mood
+- Korte gedragsinstructie per mood ("You are currently jealous: be possessive, suspicious of mentions of others, withhold warmth until reassured")
+- Top intimate memories (kinks/promises/secrets) los gemarkeerd als gevoelig
 
-```text
-+---------------------+       +---------------------------+       +------------------+
-| CharacterFormDialog |  -->  | generate-character        |  -->  | Lovable AI       |
-| (Generate button)   |       | (edge function)           |       | (gemini-2.5-flash)|
-+---------------------+       +---------------------------+       +------------------+
+Dit is de hefboom waardoor de character daadwerkelijk anders gaat reageren.
+
+### 5. UI
+- **Chat header**: mood badge naast character naam (icoon + label, kleur uit mood)
+- **RelationshipDashboard**: huidige mood bovenaan + 1-zinnige beschrijving
+- **Milestone toasts**: wanneer een metric door 25/50/75 heen gaat → kleine toast ("Affection rose to 75 — she's getting attached")
+
+## Technical details
+
+### Database migration
+```sql
+ALTER TABLE public.relationship_states
+  ADD COLUMN current_mood text NOT NULL DEFAULT 'neutral',
+  ADD COLUMN mood_updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN intimacy_level integer NOT NULL DEFAULT 0;
+
+ALTER TABLE public.relationship_states
+  ADD CONSTRAINT relationship_states_unique_triple
+  UNIQUE (character_id, persona_id, user_id);
 ```
+(De unique constraint is nodig voor de bestaande `upsert onConflict`.)
 
-The edge function uses Lovable AI (no API key needed) via the `LOVABLE_API_KEY` secret, calling `google/gemini-2.5-flash` for fast, cost-efficient generation.
+Geen schema-changes op `memories` — alleen nieuwe category-strings die de extractor mag uitspugen.
 
-## Implementation Steps
+### Files
+| File | Change |
+|---|---|
+| `supabase/functions/chat/index.ts` | Accept `relationshipState` + `intimateMemories` in body; inject `<relationship_state>` blok in system prompt met mood-gedragsregels |
+| `supabase/functions/extract-memories/index.ts` | Extra call: vraag relationship-deltas + intimate categories; schrijf naar `relationship_states` en `memories` |
+| `src/lib/relationship.ts` (nieuw) | `deriveMood(state)` pure functie + mood metadata (icon/color/instruction) |
+| `src/hooks/useRelationshipState.ts` | Voeg `current_mood`/`intimacy_level` toe aan type & upsert |
+| `src/lib/ai.ts` | Geef `relationshipState` + `intimateMemories` mee aan chat call |
+| `src/pages/ChatPage.tsx` | Trek state op; passeer naar `sendChatMessage`; mood badge in header; milestone-detectie voor toasts |
+| `src/components/chat/RelationshipDashboard.tsx` | Mood weergave bovenaan |
+| `src/components/chat/MemoriesPanel.tsx` | Iconen + groepering voor kink/promise/secret/favorite |
+| `src/types/index.ts` | `currentMood`, `intimacyLevel`, nieuwe memory categories |
 
-### 1. Create Edge Function: `supabase/functions/generate-character/index.ts`
-
-- Accepts partial character data (any fields that are already filled)
-- Accepts optional `preferences` object (genre, character type, tone) for the empty-form scenario
-- Uses a structured output prompt that returns JSON matching the form fields
-- Returns: `{ name, backstory, personalityTraits, speechStyle, behavioralBoundaries, firstMessage }`
-
-Request body:
-```json
-{
-  "existingData": {
-    "name": "Kael",
-    "personalityTraits": ["Brave"],
-    "backstory": "",
-    "speechStyle": "",
-    "behavioralBoundaries": "",
-    "firstMessage": ""
-  },
-  "preferences": {
-    "genre": "dark fantasy",
-    "characterType": "antagonist",
-    "tone": "serious"
-  }
-}
-```
-
-### 2. Update `CharacterFormDialog.tsx`
-
-- Add a "Generate" button (Sparkles icon) next to the dialog title
-- When clicked with all-empty fields: show a small preferences panel with 3 dropdowns (genre, type, tone) before generating
-- When clicked with some filled fields: generate immediately
-- On response: programmatically set form values via `setValue()` and update `traits` state
-- Show loading state on the button during generation
-
-### 3. Update `supabase/config.toml`
-
-- Add `verify_jwt = false` for the new function (auth validated in code)
-
-## Technical Details
-
-### Edge Function Prompt Strategy
-
-The prompt instructs the AI to:
-- Treat any non-empty fields as immutable constraints
-- Generate missing fields that are coherent with existing ones
-- Return valid JSON only, no markdown wrapping
-- Keep backstory to 1-2 paragraphs
-- Generate 4-6 personality traits (preserving existing ones)
-- Write first message fully in-character
-
-### Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/generate-character/index.ts` | Create | Edge function for AI character generation |
-| `src/components/characters/CharacterFormDialog.tsx` | Modify | Add Generate button, preferences panel, and auto-fill logic |
-
-### UI Details
-
-- Generate button: positioned in the dialog header, uses `Sparkles` icon from lucide-react
-- Preferences panel: 3 select dropdowns that appear inline at the top of the form when all fields are empty
-  - Genre: Fantasy, Sci-Fi, Modern, Historical, Horror, Romance, Other
-  - Character Type: Protagonist, Antagonist, Mentor, Companion, Trickster, Stranger
-  - Tone: Serious, Playful, Dark, Romantic, Mysterious, Warm
-- Loading state: button shows spinner, form fields show subtle shimmer
-
+### Niet in scope (later)
+- Multi-character scenes
+- AI-generated continuity summaries
+- "Continue/escalate/softer" scene-buttons (apart traject)
