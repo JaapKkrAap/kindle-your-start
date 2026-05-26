@@ -72,7 +72,15 @@ export type MemoryCategory =
   | 'location'
   | 'item'
   | 'persona_impression'
-  | 'emotional_shift';
+  | 'emotional_shift'
+  | 'kink'
+  | 'promise'
+  | 'secret'
+  | 'favorite';
+
+export const INTIMATE_MEMORY_CATEGORIES: MemoryCategory[] = [
+  'kink', 'promise', 'secret', 'favorite',
+];
 
 export interface NarrativeDirective {
   id: string;
@@ -165,6 +173,9 @@ export interface RelationshipState {
   affection: number;
   tension: number;
   respect: number;
+  currentMood: string;
+  intimacyLevel: number;
+  moodUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
