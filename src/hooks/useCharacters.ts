@@ -128,7 +128,7 @@ export function useUpdateCharacter() {
       
       const { error } = await supabase
         .from('characters')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id);
       
       if (error) throw error;

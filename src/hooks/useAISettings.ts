@@ -94,7 +94,7 @@ export function useUpdateAISettings() {
 
       const { error } = await supabase
         .from('ai_settings')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', existing.id);
 
       if (error) throw error;
