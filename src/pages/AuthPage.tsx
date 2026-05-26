@@ -89,22 +89,22 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 mb-4">
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
             <Sparkles className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-foreground">
-            Character Roleplay
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+            Kindle Your Start
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Immersive AI-powered storytelling
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            A polished studio for immersive AI-powered storytelling.
           </p>
         </div>
 
-        <Card className="glass-card">
+        <Card className="premium-card">
           <CardHeader>
             <CardTitle>{isLogin ? 'Welcome back' : 'Create account'}</CardTitle>
             <CardDescription>
@@ -126,7 +126,7 @@ export default function AuthPage() {
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Your character name"
-                      className="pl-10 bg-muted/50"
+                      className="bg-muted/50 pl-10"
                     />
                   </div>
                 </div>
@@ -143,7 +143,7 @@ export default function AuthPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
-                    className="pl-10 bg-muted/50"
+                    className="bg-muted/50 pl-10"
                   />
                 </div>
               </div>
@@ -160,7 +160,7 @@ export default function AuthPage() {
                     placeholder="••••••••"
                     required
                     minLength={6}
-                    className="pl-10 bg-muted/50"
+                    className="bg-muted/50 pl-10"
                   />
                 </div>
               </div>
@@ -185,12 +185,12 @@ export default function AuthPage() {
                 Continue as Guest
               </Button>
 
-              <p className="text-sm text-center text-muted-foreground">
+              <p className="text-center text-sm text-muted-foreground">
                 {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
                   type="button"
                   onClick={() => setIsLogin(!isLogin)}
-                  className="text-primary hover:underline font-medium"
+                  className="font-medium text-primary hover:underline"
                 >
                   {isLogin ? 'Sign up' : 'Sign in'}
                 </button>

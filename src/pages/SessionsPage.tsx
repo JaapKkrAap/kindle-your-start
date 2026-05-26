@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageShell } from '@/components/layout/PageShell';
 import { useChatSessions, useDeleteSession } from '@/hooks/useChatSessions';
 import { useCharacters } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
@@ -76,11 +77,7 @@ export default function SessionsPage() {
 
   if (isLoading) {
     return (
-      <div className="h-full overflow-auto p-6">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground">Sessions</h1>
-          <p className="mt-1 text-muted-foreground">Your roleplay conversation history</p>
-        </div>
+      <PageShell title="Sessions" description="Resume recent conversations and manage your roleplay history.">
         <div className="space-y-6">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="space-y-3">
@@ -95,26 +92,24 @@ export default function SessionsPage() {
             </div>
           ))}
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-foreground">Sessions</h1>
-        <p className="mt-1 text-muted-foreground">
-          Your roleplay conversation history
-        </p>
-      </div>
+    <PageShell
+      title="Sessions"
+      description="Resume recent conversations and manage your roleplay history."
+      meta={allSessions?.length ? <span className="text-xs font-medium uppercase tracking-[0.14em] text-primary">{allSessions.length} session{allSessions.length === 1 ? '' : 's'}</span> : undefined}
+    >
 
       {!allSessions?.length ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-4 rounded-full bg-muted p-6">
-            <MessageSquare className="h-8 w-8 text-muted-foreground" />
+        <div className="empty-state min-h-[360px]">
+          <div className="mb-5 rounded-lg bg-primary/10 p-5 text-primary ring-1 ring-primary/20">
+            <MessageSquare className="h-8 w-8" />
           </div>
-          <h2 className="font-display text-xl font-semibold">No sessions yet</h2>
-          <p className="mt-2 max-w-sm text-muted-foreground">
+          <h2 className="text-xl font-semibold">No sessions yet</h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
             Start a conversation with a character to create your first session.
           </p>
           <Link to="/">
@@ -143,19 +138,19 @@ export default function SessionsPage() {
                 {/* Character header */}
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar 
-                    className="h-10 w-10 border-2 border-primary/50"
+                    className="h-10 w-10 border border-primary/35"
                     style={{ backgroundColor: character?.avatarUrl ? undefined : getAvatarColor(displayName) }}
                   >
                     <AvatarImage src={character?.avatarUrl} alt={displayName} />
                     <AvatarFallback 
-                      className="font-serif text-white"
+                      className="font-semibold text-white"
                       style={{ backgroundColor: getAvatarColor(displayName) }}
                     >
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="font-display font-semibold">{displayName}</h2>
+                    <h2 className="font-semibold">{displayName}</h2>
                     <p className="text-xs text-muted-foreground">
                       {sessions.length} session{sessions.length !== 1 ? 's' : ''}
                     </p>
@@ -165,7 +160,7 @@ export default function SessionsPage() {
                 {/* Sessions list */}
                 <div className="ml-5 border-l-2 border-primary/30 pl-6 space-y-3">
                   {sessions.map(session => (
-                    <Card key={session.id} className="glass-card group relative hover:border-primary/50 transition-colors">
+                    <Card key={session.id} className="premium-card group relative">
                       {/* Timeline dot */}
                       <div className="absolute -left-[31px] top-4 h-3 w-3 rounded-full bg-primary border-2 border-background" />
                       
@@ -235,6 +230,6 @@ export default function SessionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }

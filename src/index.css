@@ -2,94 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Gaming/Fantasy Dark Theme - Deep Wine Maroon Accent */
+/* Premium cinematic dark theme */
 
 @layer base {
   :root {
-    --background: 220 20% 10%;
-    --foreground: 0 0% 95%;
+    --background: 222 22% 8%;
+    --foreground: 220 18% 96%;
 
-    --card: 220 18% 13%;
-    --card-foreground: 0 0% 95%;
+    --card: 222 18% 12%;
+    --card-foreground: 220 18% 96%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 222 18% 11%;
+    --popover-foreground: 220 18% 96%;
 
-    --primary: 0 65% 45%;
+    --primary: 352 58% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 15% 16%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary-foreground: 220 18% 92%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 220 13% 18%;
+    --muted-foreground: 220 10% 66%;
 
-    --accent: 220 15% 22%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 342 30% 20%;
+    --accent-foreground: 220 18% 96%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 18%;
-    --ring: 0 65% 45%;
+    --border: 220 13% 22%;
+    --input: 220 13% 17%;
+    --ring: 352 58% 54%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* Gaming theme colors */
-    --maroon: 0 65% 45%;
-    --maroon-glow: 0 70% 50%;
-    --slate-dark: 220 20% 12%;
-    --slate-medium: 220 15% 20%;
-    --slate-light: 220 10% 30%;
+    --maroon: 352 58% 50%;
+    --maroon-glow: 352 68% 58%;
+    --slate-dark: 222 22% 10%;
+    --slate-medium: 220 14% 18%;
+    --slate-light: 220 10% 35%;
 
     /* Gradients */
-    --gradient-maroon: linear-gradient(135deg, hsl(0 65% 45%), hsl(0 55% 35%));
-    --gradient-dark: linear-gradient(180deg, hsl(220 20% 10%), hsl(220 25% 8%));
+    --gradient-maroon: linear-gradient(135deg, hsl(352 58% 50%), hsl(342 44% 35%));
+    --gradient-dark: linear-gradient(180deg, hsl(222 22% 8%), hsl(222 28% 6%));
 
     /* Shadows */
-    --shadow-glow: 0 0 20px hsl(0 65% 45% / 0.3);
-    --shadow-deep: 0 8px 32px hsl(220 25% 5% / 0.6);
-    --shadow-subtle: 0 2px 8px hsl(220 25% 5% / 0.4);
+    --shadow-glow: 0 0 24px hsl(352 58% 50% / 0.22);
+    --shadow-deep: 0 18px 60px hsl(222 35% 4% / 0.45);
+    --shadow-subtle: 0 10px 30px hsl(222 35% 4% / 0.28);
 
-    --sidebar-background: 220 20% 11%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 0 65% 45%;
+    --sidebar-background: 222 24% 9%;
+    --sidebar-foreground: 220 16% 88%;
+    --sidebar-primary: 352 58% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 0 65% 45%;
+    --sidebar-accent: 220 15% 16%;
+    --sidebar-accent-foreground: 220 18% 96%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 352 58% 54%;
   }
 
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 0 0% 95%;
-    --card: 220 18% 13%;
-    --card-foreground: 0 0% 95%;
-    --popover: 220 18% 12%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 65% 45%;
+    --background: 222 22% 8%;
+    --foreground: 220 18% 96%;
+    --card: 222 18% 12%;
+    --card-foreground: 220 18% 96%;
+    --popover: 222 18% 11%;
+    --popover-foreground: 220 18% 96%;
+    --primary: 352 58% 50%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 15% 16%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 220 15% 22%;
-    --accent-foreground: 0 0% 95%;
+    --secondary-foreground: 220 18% 92%;
+    --muted: 220 13% 18%;
+    --muted-foreground: 220 10% 66%;
+    --accent: 342 30% 20%;
+    --accent-foreground: 220 18% 96%;
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 20%;
-    --input: 220 15% 18%;
-    --ring: 0 65% 45%;
-    --sidebar-background: 220 20% 11%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 0 65% 45%;
+    --border: 220 13% 22%;
+    --input: 220 13% 17%;
+    --ring: 352 58% 54%;
+    --sidebar-background: 222 24% 9%;
+    --sidebar-foreground: 220 16% 88%;
+    --sidebar-primary: 352 58% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 0 65% 45%;
+    --sidebar-accent: 220 15% 16%;
+    --sidebar-accent-foreground: 220 18% 96%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 352 58% 54%;
   }
 }
 
@@ -104,7 +104,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    background: linear-gradient(180deg, hsl(220 20% 10%), hsl(220 25% 8%));
+    background:
+      linear-gradient(180deg, hsl(222 22% 8%), hsl(222 28% 6%));
     min-height: 100vh;
   }
 
@@ -133,7 +134,7 @@
 
   /* Primary glow effect */
   .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.16), 0 12px 34px hsl(var(--primary) / 0.18);
   }
 
   /* User message bubble - maroon */
@@ -156,10 +157,38 @@
 
   /* Glass morphism card */
   .glass-card {
-    background: linear-gradient(145deg, hsl(220 18% 14% / 0.8), hsl(220 18% 10% / 0.9));
+    background: linear-gradient(145deg, hsl(222 18% 14% / 0.9), hsl(222 20% 10% / 0.96));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border) / 0.5);
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: var(--shadow-subtle);
+  }
+
+  .app-surface {
+    background: linear-gradient(145deg, hsl(var(--card) / 0.82), hsl(var(--background) / 0.86));
+    border: 1px solid hsl(var(--border) / 0.72);
+    box-shadow: var(--shadow-subtle);
+  }
+
+  .page-shell {
+    @apply h-full overflow-auto px-4 py-5 sm:px-6 lg:px-8;
+  }
+
+  .page-container {
+    @apply mx-auto w-full max-w-7xl;
+  }
+
+  .premium-card {
+    @apply rounded-lg border border-border/70 bg-card/75 shadow-sm transition-colors;
+  }
+
+  .premium-card:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    background: hsl(var(--card) / 0.9);
+  }
+
+  .empty-state {
+    @apply app-surface flex flex-col items-center justify-center rounded-lg px-6 py-16 text-center;
   }
 
   /* Roleplay message styling */
@@ -179,7 +208,7 @@
 
   /* Portrait frame */
   .portrait-frame {
-    @apply relative rounded-2xl overflow-hidden;
+    @apply relative rounded-lg overflow-hidden;
     box-shadow:
       0 0 0 2px hsl(var(--primary) / 0.3),
       0 4px 20px hsl(220 25% 5% / 0.5);
@@ -198,7 +227,7 @@
 
   /* Pill input container */
   .pill-input {
-    @apply rounded-full bg-muted/50 border border-border/50;
+    @apply rounded-lg bg-muted/50 border border-border/60;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
 

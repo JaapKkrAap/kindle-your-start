@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PersonaCard } from '@/components/personas/PersonaCard';
 import { PersonaFormDialog } from '@/components/personas/PersonaFormDialog';
+import { PageShell } from '@/components/layout/PageShell';
 import { usePersonas, useCreatePersona, useUpdatePersona, useDeletePersona } from '@/hooks/usePersonas';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -92,32 +93,27 @@ export default function PersonasPage() {
   };
 
   return (
-    <div className="h-full overflow-auto p-6">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">
-            User Personas
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Define how you appear in roleplay sessions
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="bg-accent hover:bg-accent/90">
+    <PageShell
+      title="Personas"
+      description="Define the voices, tones, and identities you bring into each roleplay session."
+      meta={personas?.length ? <span className="text-xs font-medium uppercase tracking-[0.14em] text-primary">{personas.length} persona{personas.length === 1 ? '' : 's'}</span> : undefined}
+      action={
+        <Button onClick={() => setShowCreateDialog(true)} className="glow-primary">
           <Plus className="mr-2 h-4 w-4" />
           New Persona
         </Button>
-      </div>
+      }
+    >
 
       {/* Personas List */}
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[...Array(3)].map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       ) : personas && personas.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {personas.map(persona => (
             <PersonaCard
               key={persona.id}
@@ -130,15 +126,15 @@ export default function PersonasPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-4 rounded-full bg-muted p-6">
-            <User className="h-8 w-8 text-muted-foreground" />
+        <div className="empty-state min-h-[360px]">
+          <div className="mb-5 rounded-lg bg-primary/10 p-5 text-primary ring-1 ring-primary/20">
+            <User className="h-8 w-8" />
           </div>
-          <h2 className="font-display text-xl font-semibold">No personas yet</h2>
-          <p className="mt-2 max-w-sm text-muted-foreground">
-            Create personas to define different roleplay identities for yourself.
+          <h2 className="text-xl font-semibold">Create a persona</h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            Personas help characters react to your chosen voice, temperament, and backstory.
           </p>
-          <Button onClick={() => setShowCreateDialog(true)} className="mt-6 bg-accent hover:bg-accent/90">
+          <Button onClick={() => setShowCreateDialog(true)} className="mt-6 glow-primary">
             <Plus className="mr-2 h-4 w-4" />
             Create Persona
           </Button>
@@ -147,9 +143,9 @@ export default function PersonasPage() {
 
       {/* Info Card */}
       {personas && personas.length > 0 && (
-        <div className="mt-8 rounded-xl border border-border/50 bg-muted/20 p-6">
-          <h3 className="font-display font-semibold mb-2">How Personas Work</h3>
-          <p className="text-sm text-muted-foreground">
+        <div className="premium-card mt-8 p-5">
+          <h3 className="mb-2 font-semibold">How personas work</h3>
+          <p className="text-sm leading-6 text-muted-foreground">
             When you select a persona and start chatting with a character, the AI will adapt its
             responses based on your persona's traits, tone, and relationship dynamics. You can switch
             personas mid-conversation to change how you're perceived in the narrative.
@@ -217,6 +213,6 @@ export default function PersonasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }

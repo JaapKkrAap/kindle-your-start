@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function CharacterCardSkeleton() {
   return (
-    <div className="glass-card overflow-hidden rounded-xl">
+    <div className="premium-card overflow-hidden">
       <div className="aspect-[3/4] bg-muted/50">
         <Skeleton className="h-full w-full" />
       </div>

@@ -70,15 +70,15 @@ export function ChatMessageBubble({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className={cn(
-        'group flex gap-3 px-4 py-2',
+        'group flex gap-3 px-4 py-3',
         isUser ? 'flex-row-reverse' : ''
       )}
     >
       {/* Avatar */}
       <div className="flex flex-col items-center gap-1 shrink-0">
         <Avatar className={cn(
-          'h-11 w-11 border-2',
-          isUser ? 'border-primary/60' : 'border-accent'
+          'h-10 w-10 border shadow-sm',
+          isUser ? 'border-primary/55' : 'border-border'
         )}>
           <AvatarImage src={avatarUrl} alt={displayName} />
           <AvatarFallback
@@ -91,7 +91,7 @@ export function ChatMessageBubble({
       </div>
 
       {/* Message Content */}
-      <div className={cn('flex-1 max-w-[80%]', isUser ? 'flex flex-col items-end' : '')}>
+      <div className={cn('max-w-[82%] flex-1', isUser ? 'flex flex-col items-end' : '')}>
         {/* Name */}
         <div className={cn(
           'flex items-center gap-2 mb-1 px-1',
@@ -108,7 +108,7 @@ export function ChatMessageBubble({
         {/* Bubble */}
         <div
           className={cn(
-            'rounded-2xl px-4 py-3 max-w-[85%] shadow-sm transition-all duration-200',
+            'max-w-[92%] rounded-lg px-4 py-3 shadow-sm transition-all duration-200',
             isUser
               ? 'bubble-user ml-auto'
               : 'bubble-character mr-auto',
@@ -116,7 +116,7 @@ export function ChatMessageBubble({
           )}
           style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
+          <p className="m-0 whitespace-pre-wrap text-sm leading-7">
             {renderContent(message.content)}
           </p>
 
@@ -140,7 +140,7 @@ export function ChatMessageBubble({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+            className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:text-foreground"
             onClick={() => onToggleCanon(message.id, !message.isCanon)}
           >
             <BookMarked className={cn('h-3 w-3 mr-1', message.isCanon && 'text-primary')} />
@@ -149,7 +149,7 @@ export function ChatMessageBubble({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+            className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:text-foreground"
             onClick={() => onEdit(message.id)}
           >
             <Edit className="h-3 w-3 mr-1" />
@@ -190,7 +190,7 @@ function RegeneratePopover({
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+          className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3 mr-1" />
           Redo

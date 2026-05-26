@@ -205,7 +205,7 @@ export function CharacterFormDialog({
       <DialogContent className="glass-card max-w-2xl border-primary/20">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="font-display text-xl">
+            <DialogTitle className="text-xl font-semibold">
               {initialData ? 'Edit Character' : 'Create New Character'}
             </DialogTitle>
             <Button

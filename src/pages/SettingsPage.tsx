@@ -16,6 +16,7 @@ import {
 import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { PageShell } from '@/components/layout/PageShell';
 import type { AIProvider } from '@/types';
 import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
 
@@ -112,18 +113,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground">Settings</h1>
-          <p className="mt-1 text-muted-foreground">
-            Configure AI providers and roleplay parameters
-          </p>
-        </div>
-
+    <PageShell
+      title="Settings"
+      description="Tune providers, response behavior, prompts, and account preferences from one organized control room."
+      maxWidth="max-w-4xl"
+      action={
+        <Button onClick={handleSave} disabled={updateSettings.isPending} className="glow-primary">
+          <Save className="mr-2 h-4 w-4" />
+          {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
+        </Button>
+      }
+    >
         <Tabs defaultValue="provider" className="space-y-6">
-          <TabsList className="bg-muted/50">
+          <TabsList className="grid h-auto w-full grid-cols-2 bg-muted/45 p-1 sm:inline-grid sm:w-auto sm:grid-cols-4">
             <TabsTrigger value="provider">AI Provider</TabsTrigger>
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="prompts">System Prompt</TabsTrigger>
@@ -132,7 +134,7 @@ export default function SettingsPage() {
 
           {/* Provider Tab */}
           <TabsContent value="provider" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Server className="h-5 w-5" />
@@ -143,6 +145,33 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {[
+                    { id: 'openai' as AIProvider, icon: Bot, label: 'OpenAI', hint: 'Balanced cloud models' },
+                    { id: 'openrouter' as AIProvider, icon: Cloud, label: 'OpenRouter', hint: 'Multi-model routing' },
+                    { id: 'lmstudio' as AIProvider, icon: Server, label: 'LM Studio', hint: 'Local inference' },
+                  ].map(provider => {
+                    const Icon = provider.icon;
+                    const active = localSettings.provider === provider.id;
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setLocalSettings(s => ({ ...s, provider: provider.id }))}
+                        className={`rounded-lg border p-4 text-left transition-all ${
+                          active
+                            ? 'border-primary/60 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.18)]'
+                            : 'border-border/70 bg-muted/25 hover:border-primary/35 hover:bg-muted/40'
+                        }`}
+                      >
+                        <Icon className={`mb-3 h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <p className="font-medium">{provider.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{provider.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Provider</Label>
                   <Select
@@ -177,7 +206,7 @@ export default function SettingsPage() {
 
                 {/* Provider-specific settings */}
                 {localSettings.provider === 'lmstudio' ? (
-                  <div className="space-y-4 pt-4 border-t border-border/50">
+                  <div className="space-y-4 border-t border-border/60 pt-4">
                     <div className="space-y-2">
                       <Label htmlFor="endpoint">LM Studio Endpoint</Label>
                       <Input
@@ -203,9 +232,9 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ) : localSettings.provider === 'openrouter' ? (
-                  <div className="space-y-4 pt-4 border-t border-border/50">
-                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
-                      <p className="text-sm text-primary">
+                  <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                      <p className="text-sm leading-6 text-primary">
                         OpenRouter uses the server-side OPENROUTER_API_KEY. Select your preferred model below.
                       </p>
                     </div>
@@ -230,9 +259,9 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4 pt-4 border-t border-border/50">
-                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
-                      <p className="text-sm text-primary">
+                  <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                      <p className="text-sm leading-6 text-primary">
                         OpenAI uses the server-side OPENAI_API_KEY. Select your preferred model below.
                       </p>
                     </div>
@@ -263,7 +292,7 @@ export default function SettingsPage() {
 
           {/* Parameters Tab */}
           <TabsContent value="parameters" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle>Generation Parameters</CardTitle>
                 <CardDescription>
@@ -318,7 +347,7 @@ export default function SettingsPage() {
 
           {/* System Prompt Tab */}
           <TabsContent value="prompts" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle>System Prompt Override</CardTitle>
                 <CardDescription>
@@ -341,7 +370,7 @@ export default function SettingsPage() {
 
           {/* Account Tab */}
           <TabsContent value="account" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
@@ -370,14 +399,6 @@ export default function SettingsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Save Button */}
-        <div className="mt-8 flex justify-end">
-          <Button onClick={handleSave} disabled={updateSettings.isPending} className="glow-primary">
-            <Save className="mr-2 h-4 w-4" />
-            {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }

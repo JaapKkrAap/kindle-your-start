@@ -12,6 +12,7 @@
    TableRow,
  } from '@/components/ui/table';
  import { Skeleton } from '@/components/ui/skeleton';
+ import { PageShell } from '@/components/layout/PageShell';
  import { format } from 'date-fns';
  
  interface ProfileWithRole {
@@ -93,25 +94,21 @@
    };
  
    return (
-     <div className="space-y-8">
-       {/* Header */}
-       <div className="flex items-center gap-3">
-         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/20">
-           <Shield className="h-6 w-6 text-primary" />
-         </div>
-         <div>
-           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-           <p className="text-muted-foreground">System overview and user management</p>
-         </div>
-         <Badge className="ml-auto" variant="default">
+     <PageShell
+       title="Admin Dashboard"
+       description="System overview and user management."
+       meta={
+         <Badge variant="default" className="gap-2">
+           <Shield className="h-3.5 w-3.5" />
            Admin Access
          </Badge>
-       </div>
+       }
+     >
  
        {/* Statistics Cards */}
        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
          {statCards.map((stat) => (
-           <Card key={stat.label}>
+           <Card key={stat.label} className="premium-card">
              <CardHeader className="flex flex-row items-center justify-between pb-2">
                <CardTitle className="text-sm font-medium text-muted-foreground">
                  {stat.label}
@@ -130,7 +127,7 @@
        </div>
  
        {/* User Management */}
-       <Card>
+       <Card className="premium-card">
          <CardHeader>
            <CardTitle>User Management</CardTitle>
            <CardDescription>View and manage all registered users</CardDescription>
@@ -185,6 +182,6 @@
            )}
          </CardContent>
        </Card>
-     </div>
+     </PageShell>
    );
  }

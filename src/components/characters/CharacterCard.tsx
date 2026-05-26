@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Play, Edit, Copy, Trash2 } from 'lucide-react';
@@ -28,10 +27,10 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      whileHover={{ y: -3, transition: { duration: 0.18 } }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="glass-card group relative overflow-hidden transition-all duration-300 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/20">
+      <Card className="premium-card group relative overflow-hidden">
         <CardContent className="p-0">
           {/* Portrait */}
           <div className="portrait-frame aspect-[3/4] bg-gradient-to-b from-muted to-background">
@@ -46,7 +45,7 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
                 className="flex h-full w-full items-center justify-center"
                 style={{ backgroundColor: color }}
               >
-                <span className="text-5xl font-serif text-white/90">
+            <span className="text-4xl font-semibold text-white/90">
                   {initials}
                 </span>
               </div>
@@ -57,11 +56,11 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/95 to-transparent p-4">
             {/* Character info */}
             <div className="space-y-1">
-              <h3 className="font-display text-lg font-semibold text-foreground truncate" title={character.name}>
+              <h3 className="truncate text-base font-semibold text-foreground" title={character.name}>
                 {character.name}
               </h3>
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {character.personalityTraits.slice(0, 3).join(' • ')}
+              <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                {character.personalityTraits.slice(0, 3).join(' / ') || 'Ready for a new scene'}
               </p>
             </div>
             {character.lastPlayedAt && (
@@ -78,7 +77,7 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
+                  className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur-sm hover:bg-background"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-4 w-4" />
@@ -111,7 +110,7 @@ export function CharacterCard({ character, onPlay, onEdit, onDuplicate, onDelete
             className="absolute inset-0 top-12 z-10 flex items-center justify-center bg-primary/0 opacity-0 transition-all duration-300 group-hover:bg-primary/10 group-hover:opacity-100"
           >
             <motion.div
-              className="rounded-full bg-primary p-4 shadow-lg glow-primary"
+              className="rounded-lg bg-primary p-4 shadow-lg glow-primary"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >

@@ -592,19 +592,19 @@ export default function ChatPage() {
       {/* Content Layer */}
       <div className="flex flex-col h-full relative z-10">
         {/* Minimal Header */}
-        <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3 shadow-sm">
+        <header className="flex items-center gap-3 border-b border-border/70 bg-background/86 px-4 py-3 shadow-sm backdrop-blur-xl">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
             onClick={() => navigate('/')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
           {/* Character info - centered */}
-          <div className="flex-1 flex items-center justify-center gap-3">
-            <Avatar className="h-10 w-10 border-2 border-primary/40">
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+            <Avatar className="h-10 w-10 border border-primary/35 shadow-sm">
               <AvatarImage src={character.avatarUrl} alt={character.name} />
               <AvatarFallback
                 className="text-sm font-medium text-white"
@@ -613,16 +613,21 @@ export default function ChatPage() {
                 {characterInitials}
               </AvatarFallback>
             </Avatar>
-            <h1 className="text-lg font-semibold">{character.name}</h1>
+            <div className="min-w-0 text-center">
+              <h1 className="truncate text-base font-semibold sm:text-lg">{character.name}</h1>
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                {activePersona?.name ? `As ${activePersona.name}` : 'Roleplay session'}
+              </p>
+            </div>
           </div>
 
           {/* Right controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 p-1">
 
             {/* Environment Settings Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md">
                   <Settings className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -697,7 +702,7 @@ export default function ChatPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
+                <Button variant="ghost" size="sm" className="h-8 gap-2 rounded-md px-2">
                   <User className="h-4 w-4" />
                   <Badge variant="secondary" className="text-xs font-normal">
                     {activePersona?.name ?? 'You'}
@@ -726,7 +731,7 @@ export default function ChatPage() {
         {/* Active Narrative Directives Bar */}
         <AnimatePresence>
           {directives.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-background/40 border-b border-border/20 backdrop-blur-sm overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 overflow-hidden border-b border-border/40 bg-background/55 px-4 py-2 backdrop-blur-sm">
               <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
                 <Zap className="h-2.5 w-2.5 fill-current" />
                 Directives:
@@ -763,7 +768,7 @@ export default function ChatPage() {
           {loadingMessages ? (
             <ChatLoadingSkeleton />
           ) : (
-            <div className="py-4 max-w-3xl mx-auto">
+            <div className="mx-auto max-w-3xl py-5">
               {messages.map(message => (
                 <ChatMessageBubble
                   key={message.id}

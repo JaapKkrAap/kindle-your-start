@@ -43,15 +43,15 @@ export function PersonaCard({ persona, isActive, onSelect, onEdit, onDelete }: P
       transition={{ duration: 0.2 }}
     >
       <Card
-        className={`glass-card group cursor-pointer transition-all hover:border-accent/50 ${
-          isActive ? 'border-accent glow-accent' : ''
+        className={`premium-card group cursor-pointer ${
+          isActive ? 'border-primary/60 bg-primary/10 shadow-primary/10' : ''
         }`}
         onClick={() => onSelect(persona)}
       >
         <CardContent className="flex items-center gap-4 p-4">
           {/* Avatar */}
           <div 
-            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg"
+            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10"
             style={{ backgroundColor: getAvatarColor(persona.name) }}
           >
             {persona.avatarUrl ? (
@@ -62,25 +62,25 @@ export function PersonaCard({ persona, isActive, onSelect, onEdit, onDelete }: P
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <span className="font-serif text-lg text-white">
+                <span className="text-lg font-semibold text-white">
                   {initials}
                 </span>
               </div>
             )}
             {isActive && (
               <div className="absolute inset-0 flex items-center justify-center bg-accent/30">
-                <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               </div>
             )}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-display font-semibold text-foreground truncate">
+            <h3 className="truncate font-semibold text-foreground">
               {persona.name}
             </h3>
-            <p className="text-xs text-muted-foreground truncate">
-              {persona.defaultTone} • {persona.personalityTraits.slice(0, 2).join(', ')}
+            <p className="truncate text-xs text-muted-foreground">
+              {persona.defaultTone} / {persona.personalityTraits.slice(0, 2).join(', ') || 'No traits yet'}
             </p>
           </div>
 

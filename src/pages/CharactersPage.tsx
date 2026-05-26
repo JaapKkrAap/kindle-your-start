@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CharacterCard } from '@/components/characters/CharacterCard';
 import { CharacterFormDialog } from '@/components/characters/CharacterFormDialog';
+import { PageShell } from '@/components/layout/PageShell';
 import { useCharacters, useCreateCharacter, useUpdateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -114,34 +115,29 @@ export default function CharactersPage() {
   };
 
   return (
-    <div className="h-full overflow-auto p-6">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">
-            Characters
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Your collection of roleplay characters
-          </p>
-        </div>
+    <PageShell
+      title="Characters"
+      description="Shape your cast, revisit favorite scenes, and jump into character-driven conversations."
+      meta={characters?.length ? <span className="text-xs font-medium uppercase tracking-[0.14em] text-primary">{characters.length} character{characters.length === 1 ? '' : 's'}</span> : undefined}
+      action={
         <Button onClick={() => setShowCreateDialog(true)} className="glow-primary">
           <Plus className="mr-2 h-4 w-4" />
           New Character
         </Button>
-      </div>
+      }
+    >
 
       {/* Character Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="glass-card overflow-hidden rounded-xl">
+            <div key={i} className="premium-card overflow-hidden">
               <Skeleton className="aspect-[3/4]" />
             </div>
           ))}
         </div>
       ) : characters && characters.length > 0 ? (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {characters.map(character => (
             <CharacterCard
               key={character.id}
@@ -154,13 +150,13 @@ export default function CharactersPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-4 rounded-full bg-muted p-6">
+        <div className="empty-state min-h-[420px]">
+          <div className="mb-5 rounded-lg bg-primary/10 p-5 text-primary ring-1 ring-primary/20">
             <Users className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="font-display text-xl font-semibold">No characters yet</h2>
-          <p className="mt-2 max-w-sm text-muted-foreground">
-            Create your first character to begin your roleplay journey.
+          <h2 className="text-xl font-semibold">Create your first character</h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            Start with a name, a voice, and a first message. The studio will keep their memories, canon, and sessions organized.
           </p>
           <Button onClick={() => setShowCreateDialog(true)} className="mt-6 glow-primary">
             <Plus className="mr-2 h-4 w-4" />
@@ -229,6 +225,6 @@ export default function CharactersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }
