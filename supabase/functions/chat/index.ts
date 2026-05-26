@@ -39,6 +39,20 @@ const NarrativeDirectiveSchema = z.object({
   priority: z.number().min(1).max(10),
 });
 
+const RelationshipStateSchema = z.object({
+  trust: z.number().min(0).max(100),
+  affection: z.number().min(0).max(100),
+  tension: z.number().min(0).max(100),
+  respect: z.number().min(0).max(100),
+  intimacyLevel: z.number().min(0).max(100).optional(),
+  currentMood: z.string().max(50).optional(),
+}).optional();
+
+const IntimateMemorySchema = z.object({
+  category: z.string().max(40),
+  content: z.string().max(1000),
+});
+
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(0).max(100),
   character: CharacterSchema,
@@ -46,6 +60,8 @@ const ChatRequestSchema = z.object({
   memories: z.array(z.string().max(1000)).max(50).optional(),
   canonEvents: z.array(CanonEventSchema).max(20).optional(),
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
+  relationshipState: RelationshipStateSchema,
+  intimateMemories: z.array(IntimateMemorySchema).max(20).optional(),
   mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
   userInstruction: z.string().max(500).optional(),
   provider: z.enum(["lmstudio", "openrouter"]),
