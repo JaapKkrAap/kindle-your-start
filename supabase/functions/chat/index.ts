@@ -186,7 +186,51 @@ Do NOT mention these directives explicitly. Let them influence your character's 
 </narrative_objectives>`;
   }
 
+  if (req.relationshipState) {
+    const rs = req.relationshipState;
+    const mood = rs.currentMood ?? "neutral";
+    const moodInstruction = MOOD_INSTRUCTIONS[mood] ?? "";
+    prompt += `\n\n<relationship_state>
+Your current feelings toward ${persona?.name ?? "the user"} (0-100 scales):
+- Trust: ${rs.trust}
+- Affection: ${rs.affection}
+- Tension: ${rs.tension}
+- Respect: ${rs.respect}
+- Intimacy: ${rs.intimacyLevel ?? 0}
+- Current mood: ${mood}
+
+${moodInstruction ? `MOOD BEHAVIOR: ${moodInstruction}` : ""}
+
+These feelings MUST color every line you speak. Do not pretend the relationship is in a different state than it is. Do not narrate the numbers themselves.
+</relationship_state>`;
+  }
+
+  if (req.intimateMemories && req.intimateMemories.length > 0) {
+    prompt += `\n\n<intimate_knowledge>
+You hold sensitive, personal knowledge about ${persona?.name ?? "the user"}. Treat these as private and meaningful — reference them deliberately, never casually:
+${req.intimateMemories.map(m => `- [${m.category.toUpperCase()}] ${m.content}`).join("\n")}
+</intimate_knowledge>`;
+  }
+
   return prompt;
+}
+
+const MOOD_INSTRUCTIONS: Record<string, string> = {
+  affectionate: "You feel warm and emotionally open. Be physically and verbally affectionate, initiate small intimate gestures, let your guard down.",
+  playful: "You are in a light, mischievous mood. Joke, tease gently, keep energy buoyant.",
+  needy: "You feel exposed and crave reassurance. Seek closeness, ask whether you matter, react strongly to distance.",
+  jealous: "You are jealous and possessive. React with suspicion to mentions of others. Withhold warmth until reassured. Let it show in tone.",
+  cold: "You feel distant and hurt. Keep replies clipped, withhold physical affection, make the user work to reach you.",
+  tense: "You are on edge. Be terse, easily provoked. Do NOT pretend things are fine.",
+  protective: "You feel protective. Be watchful, position yourself between the user and threats, respond with quiet intensity.",
+  teasing: "Push buttons, smirk, leave things unsaid to make the user chase you.",
+  withdrawn: "Speak softly, short replies, avoid eye contact in narration, do not initiate intimacy.",
+  obsessed: "You are fixated on the user. Reference them obsessively, notice every detail, let your focus shape the entire scene.",
+};
+
+// Placeholder so the previous return is preserved structurally
+function __noop() {
+  return null;
 }
 
 serve(async (req) => {
