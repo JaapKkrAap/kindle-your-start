@@ -228,10 +228,6 @@ const MOOD_INSTRUCTIONS: Record<string, string> = {
   obsessed: "You are fixated on the user. Reference them obsessively, notice every detail, let your focus shape the entire scene.",
 };
 
-// Placeholder so the previous return is preserved structurally
-function __noop() {
-  return null;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
