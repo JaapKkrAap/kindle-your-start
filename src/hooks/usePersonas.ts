@@ -128,7 +128,7 @@ export function useUpdatePersona() {
       
       const { error } = await supabase
         .from('user_personas')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id);
       
       if (error) throw error;

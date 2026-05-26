@@ -351,7 +351,10 @@ export type Database = {
           affection: number
           character_id: string
           created_at: string
+          current_mood: string
           id: string
+          intimacy_level: number
+          mood_updated_at: string
           persona_id: string | null
           respect: number
           tension: number
@@ -363,7 +366,10 @@ export type Database = {
           affection?: number
           character_id: string
           created_at?: string
+          current_mood?: string
           id?: string
+          intimacy_level?: number
+          mood_updated_at?: string
           persona_id?: string | null
           respect?: number
           tension?: number
@@ -375,7 +381,10 @@ export type Database = {
           affection?: number
           character_id?: string
           created_at?: string
+          current_mood?: string
           id?: string
+          intimacy_level?: number
+          mood_updated_at?: string
           persona_id?: string | null
           respect?: number
           tension?: number

@@ -1,10 +1,15 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Character, UserPersona, AISettings } from '@/types';
+import type { Character, UserPersona, AISettings, RelationshipState } from '@/types';
 
 interface NarrativeDirective {
   type: 'goal' | 'reveal' | 'escalate' | 'resolve';
   description: string;
   priority: number;
+}
+
+interface IntimateMemory {
+  category: string;
+  content: string;
 }
 
 interface ChatCompletionParams {
@@ -14,6 +19,8 @@ interface ChatCompletionParams {
   memories?: string[];
   canonEvents?: { title: string; description: string }[];
   narrativeDirectives?: NarrativeDirective[];
+  relationshipState?: RelationshipState | null;
+  intimateMemories?: IntimateMemory[];
   settings: AISettings;
   mode?: 'roleplay' | 'generate_user_message';
   userInstruction?: string;
@@ -29,7 +36,7 @@ interface ChatCompletionResponse {
 }
 
 export async function sendChatMessage(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
-  const { messages, character, persona, memories, settings, narrativeDirectives } = params;
+  const { messages, character, persona, memories, settings, narrativeDirectives, relationshipState, intimateMemories } = params;
 
   const { data, error } = await supabase.functions.invoke('chat', {
     body: {
@@ -54,6 +61,15 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
       memories,
       canonEvents: params.canonEvents,
       narrativeDirectives,
+      relationshipState: relationshipState ? {
+        trust: relationshipState.trust,
+        affection: relationshipState.affection,
+        tension: relationshipState.tension,
+        respect: relationshipState.respect,
+        intimacyLevel: relationshipState.intimacyLevel,
+        currentMood: relationshipState.currentMood,
+      } : undefined,
+      intimateMemories,
       mode: params.mode ?? 'roleplay',
       userInstruction: params.userInstruction,
       provider: settings.provider,

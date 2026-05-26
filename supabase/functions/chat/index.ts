@@ -39,6 +39,20 @@ const NarrativeDirectiveSchema = z.object({
   priority: z.number().min(1).max(10),
 });
 
+const RelationshipStateSchema = z.object({
+  trust: z.number().min(0).max(100),
+  affection: z.number().min(0).max(100),
+  tension: z.number().min(0).max(100),
+  respect: z.number().min(0).max(100),
+  intimacyLevel: z.number().min(0).max(100).optional(),
+  currentMood: z.string().max(50).optional(),
+}).optional();
+
+const IntimateMemorySchema = z.object({
+  category: z.string().max(40),
+  content: z.string().max(1000),
+});
+
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(0).max(100),
   character: CharacterSchema,
@@ -46,6 +60,8 @@ const ChatRequestSchema = z.object({
   memories: z.array(z.string().max(1000)).max(50).optional(),
   canonEvents: z.array(CanonEventSchema).max(20).optional(),
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
+  relationshipState: RelationshipStateSchema,
+  intimateMemories: z.array(IntimateMemorySchema).max(20).optional(),
   mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
   userInstruction: z.string().max(500).optional(),
   provider: z.enum(["lmstudio", "openrouter"]),
@@ -170,8 +186,48 @@ Do NOT mention these directives explicitly. Let them influence your character's 
 </narrative_objectives>`;
   }
 
+  if (req.relationshipState) {
+    const rs = req.relationshipState;
+    const mood = rs.currentMood ?? "neutral";
+    const moodInstruction = MOOD_INSTRUCTIONS[mood] ?? "";
+    prompt += `\n\n<relationship_state>
+Your current feelings toward ${persona?.name ?? "the user"} (0-100 scales):
+- Trust: ${rs.trust}
+- Affection: ${rs.affection}
+- Tension: ${rs.tension}
+- Respect: ${rs.respect}
+- Intimacy: ${rs.intimacyLevel ?? 0}
+- Current mood: ${mood}
+
+${moodInstruction ? `MOOD BEHAVIOR: ${moodInstruction}` : ""}
+
+These feelings MUST color every line you speak. Do not pretend the relationship is in a different state than it is. Do not narrate the numbers themselves.
+</relationship_state>`;
+  }
+
+  if (req.intimateMemories && req.intimateMemories.length > 0) {
+    prompt += `\n\n<intimate_knowledge>
+You hold sensitive, personal knowledge about ${persona?.name ?? "the user"}. Treat these as private and meaningful — reference them deliberately, never casually:
+${req.intimateMemories.map(m => `- [${m.category.toUpperCase()}] ${m.content}`).join("\n")}
+</intimate_knowledge>`;
+  }
+
   return prompt;
 }
+
+const MOOD_INSTRUCTIONS: Record<string, string> = {
+  affectionate: "You feel warm and emotionally open. Be physically and verbally affectionate, initiate small intimate gestures, let your guard down.",
+  playful: "You are in a light, mischievous mood. Joke, tease gently, keep energy buoyant.",
+  needy: "You feel exposed and crave reassurance. Seek closeness, ask whether you matter, react strongly to distance.",
+  jealous: "You are jealous and possessive. React with suspicion to mentions of others. Withhold warmth until reassured. Let it show in tone.",
+  cold: "You feel distant and hurt. Keep replies clipped, withhold physical affection, make the user work to reach you.",
+  tense: "You are on edge. Be terse, easily provoked. Do NOT pretend things are fine.",
+  protective: "You feel protective. Be watchful, position yourself between the user and threats, respond with quiet intensity.",
+  teasing: "Push buttons, smirk, leave things unsaid to make the user chase you.",
+  withdrawn: "Speak softly, short replies, avoid eye contact in narration, do not initiate intimacy.",
+  obsessed: "You are fixated on the user. Reference them obsessively, notice every detail, let your focus shape the entire scene.",
+};
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

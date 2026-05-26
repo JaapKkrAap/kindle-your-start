@@ -35,6 +35,9 @@ import {
 import { useAISettings } from '@/hooks/useAISettings';
 import { useUISettings } from '@/hooks/useUISettings';
 import { useBackgroundSelector } from '@/hooks/useBackgroundSelector';
+import { useRelationshipState } from '@/hooks/useRelationshipState';
+import { deriveMood, MOOD_META, milestoneCrossed, type Mood } from '@/lib/relationship';
+import { INTIMATE_MEMORY_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { sendChatMessage } from '@/lib/ai';
@@ -106,6 +109,7 @@ export default function ChatPage() {
   // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
   const { data: canonEvents } = useCanonEvents(characterId);
+  const { data: relationshipState } = useRelationshipState(characterId, activePersonaId);
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
   const { extractMemories, isExtracting } = useMemoryExtraction();
@@ -115,6 +119,16 @@ export default function ChatPage() {
     removeDirective,
     getDirectivesForApi,
   } = useNarrativeDirectives(characterId);
+
+  // Intimate memories highlighted separately in the prompt
+  const intimateMemories = (memories ?? []).filter(m =>
+    (INTIMATE_MEMORY_CATEGORIES as string[]).includes(m.category)
+  );
+
+  // Track previous metrics to fire milestone toasts when crossings happen
+  const prevMetricsRef = useRef<{
+    trust: number; affection: number; tension: number; respect: number; intimacy: number;
+  } | null>(null);
 
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
@@ -263,8 +277,35 @@ export default function ChatPage() {
           description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
         });
       }
+      // Always refresh relationship state — deltas are applied every extraction
+      queryClient.invalidateQueries({ queryKey: ['relationship_state', characterId, activePersonaId] });
     }
   }, [sessionId, character, characterId, activePersonaId, messages, extractMemories, isExtracting, toast, queryClient]);
+
+  // Milestone detection: fire a toast when a metric crosses 25/50/75/90 upward
+  useEffect(() => {
+    if (!relationshipState) return;
+    const cur = {
+      trust: relationshipState.trust,
+      affection: relationshipState.affection,
+      tension: relationshipState.tension,
+      respect: relationshipState.respect,
+      intimacy: relationshipState.intimacyLevel ?? 0,
+    };
+    const prev = prevMetricsRef.current;
+    if (prev) {
+      (['trust', 'affection', 'respect', 'intimacy'] as const).forEach(k => {
+        const t = milestoneCrossed(prev[k], cur[k]);
+        if (t !== null) {
+          toast({
+            title: `${k[0].toUpperCase()}${k.slice(1)} rose to ${t}`,
+            description: `${character?.name ?? 'They'} feel${character ? 's' : ''} the shift.`,
+          });
+        }
+      });
+    }
+    prevMetricsRef.current = cur;
+  }, [relationshipState, toast, character]);
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
@@ -305,6 +346,8 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
+        intimateMemories: intimateMemories.map(m => ({ category: m.category, content: m.content })),
         settings: aiSettings,
       });
 
@@ -443,6 +486,8 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
+        intimateMemories: intimateMemories.map(m => ({ category: m.category, content: m.content })),
         settings: aiSettings,
       });
 
@@ -614,6 +659,31 @@ export default function ChatPage() {
               </AvatarFallback>
             </Avatar>
             <h1 className="text-lg font-semibold">{character.name}</h1>
+            {(() => {
+              const moodKey = (relationshipState?.currentMood as Mood | undefined)
+                ?? (relationshipState
+                  ? deriveMood({
+                    trust: relationshipState.trust,
+                    affection: relationshipState.affection,
+                    tension: relationshipState.tension,
+                    respect: relationshipState.respect,
+                    intimacyLevel: relationshipState.intimacyLevel,
+                  })
+                  : 'neutral');
+              if (moodKey === 'neutral') return null;
+              const meta = MOOD_META[moodKey];
+              const Icon = meta.icon;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`gap-1 px-2 py-0.5 border ${meta.className}`}
+                  title={meta.blurb}
+                >
+                  <Icon className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">{meta.label}</span>
+                </Badge>
+              );
+            })()}
           </div>
 
           {/* Right controls */}

@@ -168,7 +168,7 @@ export function useUpdateMessage() {
       
       const { error } = await supabase
         .from('chat_messages')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id);
       
       if (error) throw error;
@@ -214,7 +214,7 @@ export function useUpdateSession() {
       
       const { error } = await supabase
         .from('chat_sessions')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id);
       
       if (error) throw error;
