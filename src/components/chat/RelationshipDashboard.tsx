@@ -1,5 +1,4 @@
 import { useRelationshipState } from '@/hooks/useRelationshipState';
-import { Progress } from '@/components/ui/progress';
 import {
     Tooltip,
     TooltipContent,
@@ -8,6 +7,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Heart, Shield, Zap, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { deriveMood, MOOD_META, type Mood } from '@/lib/relationship';
 
 interface RelationshipDashboardProps {
     characterId: string;
@@ -79,9 +79,25 @@ export function RelationshipDashboard({ characterId, personaId }: RelationshipDa
         }
     };
 
+    const moodKey = (state?.currentMood as Mood | undefined)
+        ?? deriveMood({ ...data, intimacyLevel: state?.intimacyLevel ?? 0 });
+    const mood = MOOD_META[moodKey] ?? MOOD_META.neutral;
+    const MoodIcon = mood.icon;
+
     return (
         <TooltipProvider>
             <div className="p-4 space-y-5 bg-muted/20 rounded-xl border border-border/50 transition-all duration-300">
+                <div className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg border",
+                    mood.className,
+                )}>
+                    <MoodIcon className="h-5 w-5 flex-shrink-0" />
+                    <div className="min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider">{mood.label}</div>
+                        <div className="text-[11px] opacity-80 leading-tight">{mood.blurb}</div>
+                    </div>
+                </div>
+
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
                     Relationship State
                 </h3>
