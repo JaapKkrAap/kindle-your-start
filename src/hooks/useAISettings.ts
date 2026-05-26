@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { AISettings } from '@/types';
+import type { AIProvider, AISettings } from '@/types';
 
 export function useAISettings() {
   return useQuery({
@@ -24,10 +24,11 @@ export function useAISettings() {
       if (!data) {
         const defaultSettings = {
           user_id: user.id,
-          provider: 'openrouter',
+          provider: 'openai',
           lmstudio_endpoint: 'http://localhost:1234/v1',
           lmstudio_model: 'default',
           openrouter_model: 'anthropic/claude-3.5-sonnet',
+          openai_model: 'gpt-5-mini',
           temperature: 0.8,
           max_tokens: 2048,
           system_prompt_override: null,
@@ -42,10 +43,11 @@ export function useAISettings() {
         if (insertError) throw insertError;
 
         return {
-          provider: newData.provider as 'lmstudio' | 'openrouter',
+          provider: newData.provider as AIProvider,
           lmstudioEndpoint: newData.lmstudio_endpoint,
           lmstudioModel: newData.lmstudio_model,
           openrouterModel: newData.openrouter_model,
+          openaiModel: newData.openai_model ?? 'gpt-5-mini',
           temperature: Number(newData.temperature),
           maxTokens: newData.max_tokens,
           systemPromptOverride: newData.system_prompt_override ?? undefined,
@@ -53,10 +55,11 @@ export function useAISettings() {
       }
 
       return {
-        provider: data.provider as 'lmstudio' | 'openrouter',
+        provider: data.provider as AIProvider,
         lmstudioEndpoint: data.lmstudio_endpoint,
         lmstudioModel: data.lmstudio_model,
         openrouterModel: data.openrouter_model,
+        openaiModel: data.openai_model ?? 'gpt-5-mini',
         temperature: Number(data.temperature),
         maxTokens: data.max_tokens,
         systemPromptOverride: data.system_prompt_override ?? undefined,
@@ -88,6 +91,7 @@ export function useUpdateAISettings() {
       if (data.lmstudioEndpoint !== undefined) updateData.lmstudio_endpoint = data.lmstudioEndpoint;
       if (data.lmstudioModel !== undefined) updateData.lmstudio_model = data.lmstudioModel;
       if (data.openrouterModel !== undefined) updateData.openrouter_model = data.openrouterModel;
+      if (data.openaiModel !== undefined) updateData.openai_model = data.openaiModel;
       if (data.temperature !== undefined) updateData.temperature = data.temperature;
       if (data.maxTokens !== undefined) updateData.max_tokens = data.maxTokens;
       if (data.systemPromptOverride !== undefined) updateData.system_prompt_override = data.systemPromptOverride;

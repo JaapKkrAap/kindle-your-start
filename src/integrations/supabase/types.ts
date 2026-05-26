@@ -21,6 +21,7 @@ export type Database = {
           lmstudio_endpoint: string
           lmstudio_model: string
           max_tokens: number
+          openai_model: string
           openrouter_model: string
           provider: string
           system_prompt_override: string | null
@@ -34,6 +35,7 @@ export type Database = {
           lmstudio_endpoint?: string
           lmstudio_model?: string
           max_tokens?: number
+          openai_model?: string
           openrouter_model?: string
           provider?: string
           system_prompt_override?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           lmstudio_endpoint?: string
           lmstudio_model?: string
           max_tokens?: number
+          openai_model?: string
           openrouter_model?: string
           provider?: string
           system_prompt_override?: string | null

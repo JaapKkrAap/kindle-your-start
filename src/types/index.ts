@@ -97,11 +97,14 @@ export interface CanonEvent {
   sourceMessageIds: string[];
 }
 
+export type AIProvider = 'lmstudio' | 'openrouter' | 'openai';
+
 export interface AISettings {
-  provider: 'lmstudio' | 'openrouter';
+  provider: AIProvider;
   lmstudioEndpoint: string;
   lmstudioModel: string;
   openrouterModel: string;
+  openaiModel: string;
   temperature: number;
   maxTokens: number;
   systemPromptOverride?: string;

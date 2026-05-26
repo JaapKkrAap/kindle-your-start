@@ -48,10 +48,11 @@ const ChatRequestSchema = z.object({
   narrativeDirectives: z.array(NarrativeDirectiveSchema).max(5).optional(),
   mode: z.enum(["roleplay", "generate_user_message"]).default("roleplay"),
   userInstruction: z.string().max(500).optional(),
-  provider: z.enum(["lmstudio", "openrouter"]),
+  provider: z.enum(["lmstudio", "openrouter", "openai"]),
   lmstudioEndpoint: z.string().max(200).optional(),
   lmstudioModel: z.string().max(100).optional(),
   openrouterModel: z.string().max(100).optional(),
+  openaiModel: z.string().max(100).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().min(1).max(8192).optional(),
   systemPromptOverride: z.string().max(10000).optional(),
@@ -260,11 +261,11 @@ serve(async (req) => {
           max_tokens: body.maxTokens ?? 2048,
         }),
       });
-    } else {
+    } else if (body.provider === "openrouter") {
       const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
       if (!openrouterKey) {
         return new Response(
-          JSON.stringify({ error: "OpenRouter API key not configured. Please contact the administrator." }),
+          JSON.stringify({ error: "OpenRouter API key is not configured on the server. Add OPENROUTER_API_KEY to local env or Supabase secrets." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -282,6 +283,33 @@ serve(async (req) => {
           messages,
           temperature: body.temperature ?? 0.8,
           max_tokens: body.maxTokens ?? 2048,
+        }),
+      });
+    } else {
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (!openaiKey) {
+        return new Response(
+          JSON.stringify({ error: "OpenAI API key is not configured on the server. Add OPENAI_API_KEY to local env or Supabase secrets." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const openaiMessages = messages.map(m => ({
+        role: m.role === "system" ? "developer" : m.role,
+        content: m.content,
+      }));
+
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: body.openaiModel || "gpt-5-mini",
+          messages: openaiMessages,
+          temperature: body.temperature ?? 0.8,
+          max_completion_tokens: body.maxTokens ?? 2048,
         }),
       });
     }

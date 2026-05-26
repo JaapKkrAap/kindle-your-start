@@ -60,6 +60,7 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
       lmstudioEndpoint: settings.lmstudioEndpoint || undefined,
       lmstudioModel: settings.lmstudioModel || undefined,
       openrouterModel: settings.openrouterModel || undefined,
+      openaiModel: settings.openaiModel || undefined,
       temperature: settings.temperature,
       maxTokens: settings.maxTokens,
       systemPromptOverride: settings.systemPromptOverride,

@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import {
   Select,
@@ -17,7 +16,14 @@ import {
 import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Server, Cloud, Save, LogOut, User } from 'lucide-react';
+import type { AIProvider } from '@/types';
+import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
+
+const OPENAI_MODELS = [
+  { id: 'gpt-5-mini', name: 'GPT-5 mini' },
+  { id: 'gpt-5-nano', name: 'GPT-5 nano' },
+  { id: 'gpt-5.2', name: 'GPT-5.2' },
+];
 
 const OPENROUTER_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -35,10 +41,11 @@ export default function SettingsPage() {
   const updateSettings = useUpdateAISettings();
 
   const [localSettings, setLocalSettings] = useState({
-    provider: 'lmstudio' as 'lmstudio' | 'openrouter',
+    provider: 'lmstudio' as AIProvider,
     lmstudioEndpoint: 'http://localhost:1234/v1',
     lmstudioModel: 'default',
     openrouterModel: 'anthropic/claude-3.5-sonnet',
+    openaiModel: 'gpt-5-mini',
     temperature: 0.8,
     maxTokens: 2048,
     systemPromptOverride: '',
@@ -52,6 +59,7 @@ export default function SettingsPage() {
         lmstudioEndpoint: settings.lmstudioEndpoint,
         lmstudioModel: settings.lmstudioModel,
         openrouterModel: settings.openrouterModel,
+        openaiModel: settings.openaiModel,
         temperature: settings.temperature,
         maxTokens: settings.maxTokens,
         systemPromptOverride: settings.systemPromptOverride ?? '',
@@ -66,6 +74,7 @@ export default function SettingsPage() {
         lmstudioEndpoint: localSettings.lmstudioEndpoint,
         lmstudioModel: localSettings.lmstudioModel,
         openrouterModel: localSettings.openrouterModel,
+        openaiModel: localSettings.openaiModel,
         temperature: localSettings.temperature,
         maxTokens: localSettings.maxTokens,
         systemPromptOverride: localSettings.systemPromptOverride || undefined,
@@ -130,41 +139,40 @@ export default function SettingsPage() {
                   AI Provider Selection
                 </CardTitle>
                 <CardDescription>
-                  Choose between local AI (LM Studio) or cloud AI (OpenRouter)
+                  Choose which server-side provider powers chat responses
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Provider Toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-border/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <Server className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">LM Studio (Local)</p>
-                      <p className="text-sm text-muted-foreground">Private, no API costs</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={localSettings.provider === 'lmstudio'}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings(s => ({ ...s, provider: checked ? 'lmstudio' : 'openrouter' }))
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-border/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <Cloud className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">OpenRouter (Cloud)</p>
-                      <p className="text-sm text-muted-foreground">Claude, GPT-4, and more</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={localSettings.provider === 'openrouter'}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings(s => ({ ...s, provider: checked ? 'openrouter' : 'lmstudio' }))
-                    }
-                  />
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select
+                    value={localSettings.provider}
+                    onValueChange={(value) => setLocalSettings(s => ({ ...s, provider: value as AIProvider }))}
+                  >
+                    <SelectTrigger className="bg-muted/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">
+                        <span className="flex items-center gap-2">
+                          <Bot className="h-4 w-4" />
+                          OpenAI
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="openrouter">
+                        <span className="flex items-center gap-2">
+                          <Cloud className="h-4 w-4" />
+                          OpenRouter
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="lmstudio">
+                        <span className="flex items-center gap-2">
+                          <Server className="h-4 w-4" />
+                          LM Studio
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Provider-specific settings */}
@@ -194,12 +202,11 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
-                ) : (
+                ) : localSettings.provider === 'openrouter' ? (
                   <div className="space-y-4 pt-4 border-t border-border/50">
                     <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
                       <p className="text-sm text-primary">
-                        OpenRouter API key is configured by the administrator. 
-                        Select your preferred model below.
+                        OpenRouter uses the server-side OPENROUTER_API_KEY. Select your preferred model below.
                       </p>
                     </div>
 
@@ -214,6 +221,33 @@ export default function SettingsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {OPENROUTER_MODELS.map(model => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-4 border-t border-border/50">
+                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                      <p className="text-sm text-primary">
+                        OpenAI uses the server-side OPENAI_API_KEY. Select your preferred model below.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>OpenAI Model</Label>
+                      <Select
+                        value={localSettings.openaiModel}
+                        onValueChange={value => setLocalSettings(s => ({ ...s, openaiModel: value }))}
+                      >
+                        <SelectTrigger className="bg-muted/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPENAI_MODELS.map(model => (
                             <SelectItem key={model.id} value={model.id}>
                               {model.name}
                             </SelectItem>
