@@ -35,6 +35,9 @@ import {
 import { useAISettings } from '@/hooks/useAISettings';
 import { useUISettings } from '@/hooks/useUISettings';
 import { useBackgroundSelector } from '@/hooks/useBackgroundSelector';
+import { useRelationshipState } from '@/hooks/useRelationshipState';
+import { deriveMood, MOOD_META, milestoneCrossed, type Mood } from '@/lib/relationship';
+import { INTIMATE_MEMORY_CATEGORIES } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { sendChatMessage } from '@/lib/ai';
@@ -106,6 +109,7 @@ export default function ChatPage() {
   // Fetch memories and canon events
   const { data: memories } = useMemories(characterId, activePersonaId);
   const { data: canonEvents } = useCanonEvents(characterId);
+  const { data: relationshipState } = useRelationshipState(characterId, activePersonaId);
   const createCanonEvent = useCreateCanonEvent();
   const deleteCanonEvent = useDeleteCanonEvent();
   const { extractMemories, isExtracting } = useMemoryExtraction();
@@ -115,6 +119,16 @@ export default function ChatPage() {
     removeDirective,
     getDirectivesForApi,
   } = useNarrativeDirectives(characterId);
+
+  // Intimate memories highlighted separately in the prompt
+  const intimateMemories = (memories ?? []).filter(m =>
+    (INTIMATE_MEMORY_CATEGORIES as string[]).includes(m.category)
+  );
+
+  // Track previous metrics to fire milestone toasts when crossings happen
+  const prevMetricsRef = useRef<{
+    trust: number; affection: number; tension: number; respect: number; intimacy: number;
+  } | null>(null);
 
   const { data: dbMessages, isLoading: loadingMessages } = useChatMessages(sessionId ?? undefined);
   const messages = dbMessages ?? localMessages;
