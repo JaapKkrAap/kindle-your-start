@@ -319,6 +319,8 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
+        intimateMemories: intimateMemories.map(m => ({ category: m.category, content: m.content })),
         settings: aiSettings,
       });
 
@@ -457,6 +459,8 @@ export default function ChatPage() {
           description: e.description,
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
+        relationshipState,
+        intimateMemories: intimateMemories.map(m => ({ category: m.category, content: m.content })),
         settings: aiSettings,
       });
 
