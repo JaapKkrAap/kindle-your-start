@@ -277,8 +277,35 @@ export default function ChatPage() {
           description: `${result.extracted} new ${result.extracted === 1 ? 'memory' : 'memories'} saved.`,
         });
       }
+      // Always refresh relationship state — deltas are applied every extraction
+      queryClient.invalidateQueries({ queryKey: ['relationship_state', characterId, activePersonaId] });
     }
   }, [sessionId, character, characterId, activePersonaId, messages, extractMemories, isExtracting, toast, queryClient]);
+
+  // Milestone detection: fire a toast when a metric crosses 25/50/75/90 upward
+  useEffect(() => {
+    if (!relationshipState) return;
+    const cur = {
+      trust: relationshipState.trust,
+      affection: relationshipState.affection,
+      tension: relationshipState.tension,
+      respect: relationshipState.respect,
+      intimacy: relationshipState.intimacyLevel ?? 0,
+    };
+    const prev = prevMetricsRef.current;
+    if (prev) {
+      (['trust', 'affection', 'respect', 'intimacy'] as const).forEach(k => {
+        const t = milestoneCrossed(prev[k], cur[k]);
+        if (t !== null) {
+          toast({
+            title: `${k[0].toUpperCase()}${k.slice(1)} rose to ${t}`,
+            description: `${character?.name ?? 'They'} feel${character ? 's' : ''} the shift.`,
+          });
+        }
+      });
+    }
+    prevMetricsRef.current = cur;
+  }, [relationshipState, toast, character]);
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
@@ -632,6 +659,31 @@ export default function ChatPage() {
               </AvatarFallback>
             </Avatar>
             <h1 className="text-lg font-semibold">{character.name}</h1>
+            {(() => {
+              const moodKey = (relationshipState?.currentMood as Mood | undefined)
+                ?? (relationshipState
+                  ? deriveMood({
+                    trust: relationshipState.trust,
+                    affection: relationshipState.affection,
+                    tension: relationshipState.tension,
+                    respect: relationshipState.respect,
+                    intimacyLevel: relationshipState.intimacyLevel,
+                  })
+                  : 'neutral');
+              if (moodKey === 'neutral') return null;
+              const meta = MOOD_META[moodKey];
+              const Icon = meta.icon;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`gap-1 px-2 py-0.5 border ${meta.className}`}
+                  title={meta.blurb}
+                >
+                  <Icon className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">{meta.label}</span>
+                </Badge>
+              );
+            })()}
           </div>
 
           {/* Right controls */}
