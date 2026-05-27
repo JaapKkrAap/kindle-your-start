@@ -126,7 +126,7 @@ export function PersonaFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card max-w-2xl border-accent/20">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">
+          <DialogTitle className="text-xl font-semibold">
             {initialData ? 'Edit Persona' : 'Create New Persona'}
           </DialogTitle>
         </DialogHeader>
@@ -288,7 +288,7 @@ export function PersonaFormDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90">
+              <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90 glow-primary">
                 {isLoading ? 'Saving...' : initialData ? 'Save Changes' : 'Create Persona'}
               </Button>
             </div>

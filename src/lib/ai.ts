@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Character, UserPersona, AISettings } from '@/types';
+import type { Character, ContentRating, UserPersona, AISettings } from '@/types';
 
 interface NarrativeDirective {
   type: 'goal' | 'reveal' | 'escalate' | 'resolve';
@@ -15,6 +15,7 @@ interface ChatCompletionParams {
   canonEvents?: { title: string; description: string }[];
   narrativeDirectives?: NarrativeDirective[];
   settings: AISettings;
+  contentRating: ContentRating;
   mode?: 'roleplay' | 'generate_user_message';
   userInstruction?: string;
 }
@@ -30,6 +31,10 @@ interface ChatCompletionResponse {
 
 export async function sendChatMessage(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
   const { messages, character, persona, memories, settings, narrativeDirectives } = params;
+
+  if (params.contentRating === 'explicit' && settings.provider === 'openai') {
+    throw new Error('Explicit mode is blocked for OpenAI. Switch to OpenRouter or LM Studio in Settings.');
+  }
 
   const { data, error } = await supabase.functions.invoke('chat', {
     body: {
@@ -56,10 +61,12 @@ export async function sendChatMessage(params: ChatCompletionParams): Promise<Cha
       narrativeDirectives,
       mode: params.mode ?? 'roleplay',
       userInstruction: params.userInstruction,
+      contentRating: params.contentRating,
       provider: settings.provider,
       lmstudioEndpoint: settings.lmstudioEndpoint || undefined,
       lmstudioModel: settings.lmstudioModel || undefined,
       openrouterModel: settings.openrouterModel || undefined,
+      openaiModel: settings.openaiModel || undefined,
       temperature: settings.temperature,
       maxTokens: settings.maxTokens,
       systemPromptOverride: settings.systemPromptOverride,

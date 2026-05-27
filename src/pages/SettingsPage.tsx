@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import {
   Select,
@@ -17,7 +17,16 @@ import {
 import { useAISettings, useUpdateAISettings } from '@/hooks/useAISettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Server, Cloud, Save, LogOut, User } from 'lucide-react';
+import { PageShell } from '@/components/layout/PageShell';
+import { providerCapabilities } from '@/data/seedCharacters';
+import type { AIProvider } from '@/types';
+import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
+
+const OPENAI_MODELS = [
+  { id: 'gpt-5-mini', name: 'GPT-5 mini' },
+  { id: 'gpt-5-nano', name: 'GPT-5 nano' },
+  { id: 'gpt-5.2', name: 'GPT-5.2' },
+];
 
 const OPENROUTER_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -35,10 +44,11 @@ export default function SettingsPage() {
   const updateSettings = useUpdateAISettings();
 
   const [localSettings, setLocalSettings] = useState({
-    provider: 'lmstudio' as 'lmstudio' | 'openrouter',
+    provider: 'lmstudio' as AIProvider,
     lmstudioEndpoint: 'http://localhost:1234/v1',
     lmstudioModel: 'default',
     openrouterModel: 'anthropic/claude-3.5-sonnet',
+    openaiModel: 'gpt-5-mini',
     temperature: 0.8,
     maxTokens: 2048,
     systemPromptOverride: '',
@@ -52,6 +62,7 @@ export default function SettingsPage() {
         lmstudioEndpoint: settings.lmstudioEndpoint,
         lmstudioModel: settings.lmstudioModel,
         openrouterModel: settings.openrouterModel,
+        openaiModel: settings.openaiModel,
         temperature: settings.temperature,
         maxTokens: settings.maxTokens,
         systemPromptOverride: settings.systemPromptOverride ?? '',
@@ -66,6 +77,7 @@ export default function SettingsPage() {
         lmstudioEndpoint: localSettings.lmstudioEndpoint,
         lmstudioModel: localSettings.lmstudioModel,
         openrouterModel: localSettings.openrouterModel,
+        openaiModel: localSettings.openaiModel,
         temperature: localSettings.temperature,
         maxTokens: localSettings.maxTokens,
         systemPromptOverride: localSettings.systemPromptOverride || undefined,
@@ -103,18 +115,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground">Settings</h1>
-          <p className="mt-1 text-muted-foreground">
-            Configure AI providers and roleplay parameters
-          </p>
-        </div>
-
+    <PageShell
+      title="Settings"
+      description="Tune providers, response behavior, prompts, and account preferences from one organized control room."
+      maxWidth="max-w-4xl"
+      action={
+        <Button onClick={handleSave} disabled={updateSettings.isPending} className="glow-primary">
+          <Save className="mr-2 h-4 w-4" />
+          {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
+        </Button>
+      }
+    >
         <Tabs defaultValue="provider" className="space-y-6">
-          <TabsList className="bg-muted/50">
+          <TabsList className="grid h-auto w-full grid-cols-2 bg-muted/45 p-1 sm:inline-grid sm:w-auto sm:grid-cols-4">
             <TabsTrigger value="provider">AI Provider</TabsTrigger>
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="prompts">System Prompt</TabsTrigger>
@@ -123,53 +136,90 @@ export default function SettingsPage() {
 
           {/* Provider Tab */}
           <TabsContent value="provider" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Server className="h-5 w-5" />
                   AI Provider Selection
                 </CardTitle>
                 <CardDescription>
-                  Choose between local AI (LM Studio) or cloud AI (OpenRouter)
+                  Choose the provider and understand which content modes it can handle
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Provider Toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-border/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <Server className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">LM Studio (Local)</p>
-                      <p className="text-sm text-muted-foreground">Private, no API costs</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={localSettings.provider === 'lmstudio'}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings(s => ({ ...s, provider: checked ? 'lmstudio' : 'openrouter' }))
-                    }
-                  />
+                <div className="grid gap-3 md:grid-cols-3">
+                  {[
+                    { id: 'openai' as AIProvider, icon: Bot },
+                    { id: 'openrouter' as AIProvider, icon: Cloud },
+                    { id: 'lmstudio' as AIProvider, icon: Server },
+                  ].map(provider => {
+                    const Icon = provider.icon;
+                    const capability = providerCapabilities[provider.id];
+                    const active = localSettings.provider === provider.id;
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setLocalSettings(s => ({ ...s, provider: provider.id }))}
+                        className={`rounded-lg border p-4 text-left transition-all ${
+                          active
+                            ? 'border-primary/60 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.18)]'
+                            : 'border-border/70 bg-muted/25 hover:border-primary/35 hover:bg-muted/40'
+                        }`}
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <Icon className={`h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <Badge variant="outline" className={capability.explicitCapable ? 'border-primary/30 text-primary' : 'border-border/70 text-muted-foreground'}>
+                            {capability.explicitCapable ? 'Explicit-capable' : 'Non-explicit'}
+                          </Badge>
+                        </div>
+                        <p className="font-medium">{capability.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{capability.description}</p>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border border-border/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <Cloud className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">OpenRouter (Cloud)</p>
-                      <p className="text-sm text-muted-foreground">Claude, GPT-4, and more</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={localSettings.provider === 'openrouter'}
-                    onCheckedChange={(checked) =>
-                      setLocalSettings(s => ({ ...s, provider: checked ? 'openrouter' : 'lmstudio' }))
-                    }
-                  />
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select
+                    value={localSettings.provider}
+                    onValueChange={(value) => setLocalSettings(s => ({ ...s, provider: value as AIProvider }))}
+                  >
+                    <SelectTrigger className="bg-muted/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">
+                        <span className="flex items-center gap-2">
+                          <Bot className="h-4 w-4" />
+                          OpenAI
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="openrouter">
+                        <span className="flex items-center gap-2">
+                          <Cloud className="h-4 w-4" />
+                          OpenRouter
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="lmstudio">
+                        <span className="flex items-center gap-2">
+                          <Server className="h-4 w-4" />
+                          LM Studio
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Provider-specific settings */}
                 {localSettings.provider === 'lmstudio' ? (
-                  <div className="space-y-4 pt-4 border-t border-border/50">
+                  <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                      <p className="text-sm leading-6 text-primary">
+                        LM Studio can power explicit mode when your local endpoint and loaded model are configured for adult fictional roleplay.
+                      </p>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="endpoint">LM Studio Endpoint</Label>
                       <Input
@@ -194,12 +244,11 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4 pt-4 border-t border-border/50">
-                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
-                      <p className="text-sm text-primary">
-                        OpenRouter API key is configured by the administrator. 
-                        Select your preferred model below.
+                ) : localSettings.provider === 'openrouter' ? (
+                  <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                      <p className="text-sm leading-6 text-primary">
+                        OpenRouter uses the server-side OPENROUTER_API_KEY. Explicit mode can run here when your configured model allows adult fictional erotica.
                       </p>
                     </div>
 
@@ -222,6 +271,33 @@ export default function SettingsPage() {
                       </Select>
                     </div>
                   </div>
+                ) : (
+                  <div className="space-y-4 border-t border-border/60 pt-4">
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                      <p className="text-sm leading-6 text-amber-200">
+                        OpenAI uses the server-side OPENAI_API_KEY for romantic, SFW, and non-explicit flows. Explicit mode is blocked from OpenAI routing.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>OpenAI Model</Label>
+                      <Select
+                        value={localSettings.openaiModel}
+                        onValueChange={value => setLocalSettings(s => ({ ...s, openaiModel: value }))}
+                      >
+                        <SelectTrigger className="bg-muted/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPENAI_MODELS.map(model => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -229,7 +305,7 @@ export default function SettingsPage() {
 
           {/* Parameters Tab */}
           <TabsContent value="parameters" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle>Generation Parameters</CardTitle>
                 <CardDescription>
@@ -284,7 +360,7 @@ export default function SettingsPage() {
 
           {/* System Prompt Tab */}
           <TabsContent value="prompts" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle>System Prompt Override</CardTitle>
                 <CardDescription>
@@ -307,7 +383,7 @@ export default function SettingsPage() {
 
           {/* Account Tab */}
           <TabsContent value="account" className="space-y-4">
-            <Card className="glass-card">
+            <Card className="premium-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
@@ -336,14 +412,6 @@ export default function SettingsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Save Button */}
-        <div className="mt-8 flex justify-end">
-          <Button onClick={handleSave} disabled={updateSettings.isPending} className="glow-primary">
-            <Save className="mr-2 h-4 w-4" />
-            {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }

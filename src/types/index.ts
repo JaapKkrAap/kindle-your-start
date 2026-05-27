@@ -97,11 +97,14 @@ export interface CanonEvent {
   sourceMessageIds: string[];
 }
 
+export type AIProvider = 'lmstudio' | 'openrouter' | 'openai';
+
 export interface AISettings {
-  provider: 'lmstudio' | 'openrouter';
+  provider: AIProvider;
   lmstudioEndpoint: string;
   lmstudioModel: string;
   openrouterModel: string;
+  openaiModel: string;
   temperature: number;
   maxTokens: number;
   systemPromptOverride?: string;
@@ -126,6 +129,34 @@ export interface CharacterFormData {
   speechStyle: string;
   behavioralBoundaries: string;
   firstMessage: string;
+}
+
+export type ContentRating = 'romantic' | 'spicy' | 'explicit';
+
+export interface SeedCharacterTemplate {
+  templateId: string;
+  name: string;
+  age: number;
+  category: 'Dominant' | 'Obsessive' | 'Forbidden Tension' | 'Soft & Devoted' | 'Supernatural' | 'Office Fantasy';
+  contentRating: ContentRating;
+  popularity: string;
+  previewLine: string;
+  tags: string[];
+  personalityTraits: string[];
+  backstory: string;
+  speechStyle: string;
+  behavioralBoundaries: string;
+  firstMessage: string;
+  portraitPath: string;
+  accent: string;
+}
+
+export interface ProviderCapabilityMetadata {
+  provider: AIProvider;
+  label: string;
+  explicitCapable: boolean;
+  description: string;
+  explicitModeNote: string;
 }
 
 export interface UserPersonaFormData {

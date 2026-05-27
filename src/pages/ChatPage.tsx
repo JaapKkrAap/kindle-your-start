@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ChatMessageBubble } from '@/components/chat/ChatMessageBubble';
-import { ChatInput } from '@/components/chat/ChatInput';
+import { ChatInput, type SceneMomentumAction } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { SessionPicker } from '@/components/chat/SessionPicker';
 import { ScrollToBottomButton } from '@/components/chat/ScrollToBottomButton';
@@ -37,6 +37,12 @@ import { useUISettings } from '@/hooks/useUISettings';
 import { useBackgroundSelector } from '@/hooks/useBackgroundSelector';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+import {
+  canProviderHandleExplicit,
+  contentRatingLabels,
+  getSeedCharacterRating,
+  inferContentRatingFromBackstory,
+} from '@/data/seedCharacters';
 import { sendChatMessage } from '@/lib/ai';
 import {
   DropdownMenu,
@@ -66,6 +72,46 @@ function getAvatarColor(name: string): string {
   const hue = Math.abs(hash) % 360;
   return `hsl(${hue}, 55%, 45%)`;
 }
+
+const SCENE_ACTIONS: Array<SceneMomentumAction & { instruction: string }> = [
+  {
+    id: 'continue',
+    label: 'Continue',
+    instruction: 'Continue the current scene naturally, preserving character voice and emotional continuity.',
+  },
+  {
+    id: 'escalate',
+    label: 'Escalate',
+    instruction: 'Increase emotional tension and stakes while respecting established boundaries and consent.',
+  },
+  {
+    id: 'softer',
+    label: 'Softer',
+    instruction: 'Make the next beat gentler, more reassuring, and emotionally safe.',
+  },
+  {
+    id: 'romantic',
+    label: 'More romantic',
+    instruction: 'Lean into romantic intimacy, affection, tenderness, and attachment without making it explicit.',
+  },
+  {
+    id: 'explicit',
+    label: 'More explicit',
+    explicit: true,
+    instruction: 'If all participants are fictional consenting adults and the configured provider allows it, intensify the adult erotic direction while respecting stated limits and blocked content boundaries.',
+  },
+  {
+    id: 'surprise',
+    label: 'Surprise me',
+    instruction: 'Introduce a surprising but character-consistent turn that gives the user a strong next choice.',
+  },
+];
+
+const SCENE_ACTION_BUTTONS: SceneMomentumAction[] = SCENE_ACTIONS.map(({ id, label, explicit }) => ({
+  id,
+  label,
+  explicit,
+}));
 
 export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
@@ -124,6 +170,27 @@ export default function ChatPage() {
   const activePersona = personas?.find(p => p.id === activePersonaId);
   const isCreatingSession = useRef(false);
   const lastExtractionMessageId = useRef<string | null>(null);
+  const contentRating = inferContentRatingFromBackstory(character?.backstory)
+    ?? getSeedCharacterRating(characterId)
+    ?? 'romantic';
+  const explicitProviderAvailable = canProviderHandleExplicit(aiSettings?.provider);
+  const explicitProviderBlocked = contentRating === 'explicit' && aiSettings?.provider === 'openai';
+
+  const showExplicitProviderBlockedToast = () => {
+    toast({
+      title: 'Switch provider for explicit mode',
+      description: 'OpenAI is reserved for non-explicit flows. Use OpenRouter or LM Studio for explicit-rated characters or explicit scene actions.',
+      variant: 'destructive',
+    });
+  };
+
+  const canUseCurrentProviderForContent = () => {
+    if (explicitProviderBlocked) {
+      showExplicitProviderBlockedToast();
+      return false;
+    }
+    return true;
+  };
 
   // Keyboard shortcut: Cmd/Ctrl+K to focus input
   useEffect(() => {
@@ -268,6 +335,7 @@ export default function ChatPage() {
 
   const handleSend = async (content: string) => {
     if (!sessionId || !character || !aiSettings) return;
+    if (!canUseCurrentProviderForContent()) return;
 
     // Check if this is the first user message - auto-title
     const isFirstUserMessage = !messages.some(m => m.role === 'user');
@@ -306,6 +374,7 @@ export default function ChatPage() {
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
+        contentRating,
       });
 
       await addMessage.mutateAsync({
@@ -401,6 +470,7 @@ export default function ChatPage() {
 
   const handleRegenerate = async (id: string, instruction?: string) => {
     if (!sessionId || !character || !aiSettings || isTyping) return;
+    if (!canUseCurrentProviderForContent()) return;
 
     const messageIndex = messages.findIndex(m => m.id === id);
     if (messageIndex === -1) return;
@@ -444,6 +514,7 @@ export default function ChatPage() {
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
+        contentRating,
       });
 
       await addMessage.mutateAsync({
@@ -470,6 +541,9 @@ export default function ChatPage() {
 
   const handleGenerateUserMessage = async (): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
+    if (!canUseCurrentProviderForContent()) {
+      throw new Error('Switch to OpenRouter or LM Studio for explicit mode.');
+    }
 
     const chatHistory = messages.map(m => ({
       role: m.role,
@@ -487,6 +561,7 @@ export default function ChatPage() {
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      contentRating,
       mode: 'generate_user_message',
     });
 
@@ -495,6 +570,9 @@ export default function ChatPage() {
 
   const handleRegenerateUserMessage = async (instruction?: string): Promise<string> => {
     if (!character || !aiSettings) throw new Error('Missing context');
+    if (!canUseCurrentProviderForContent()) {
+      throw new Error('Switch to OpenRouter or LM Studio for explicit mode.');
+    }
 
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) throw new Error('No user message to regenerate');
@@ -522,11 +600,72 @@ export default function ChatPage() {
       })) ?? [],
       narrativeDirectives: getDirectivesForApi(),
       settings: aiSettings,
+      contentRating,
       mode: 'generate_user_message',
       userInstruction: combinedInstruction,
     });
 
     return response.content;
+  };
+
+  const handleSceneAction = async (actionId: string) => {
+    if (!sessionId || !character || !aiSettings || isTyping) return;
+
+    const action = SCENE_ACTIONS.find(item => item.id === actionId);
+    if (!action) return;
+
+    if (action.explicit && !explicitProviderAvailable) {
+      showExplicitProviderBlockedToast();
+      return;
+    }
+
+    if (!canUseCurrentProviderForContent()) return;
+
+    const chatHistory = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    chatHistory.push({
+      role: 'system',
+      content: `[Scene direction: ${action.instruction}]`,
+    });
+
+    setIsTyping(true);
+
+    try {
+      const response = await sendChatMessage({
+        messages: chatHistory,
+        character,
+        persona: activePersona,
+        memories: memories?.map(m => m.content) ?? [],
+        canonEvents: canonEvents?.map(e => ({
+          title: e.title,
+          description: e.description,
+        })) ?? [],
+        narrativeDirectives: getDirectivesForApi(),
+        settings: aiSettings,
+        contentRating: action.explicit ? 'explicit' : contentRating,
+      });
+
+      await addMessage.mutateAsync({
+        sessionId,
+        characterId: character.id,
+        personaId: activePersonaId,
+        role: 'character',
+        content: response.content,
+      });
+
+      maybeExtractMemories();
+    } catch (error) {
+      toast({
+        title: 'Scene action failed',
+        description: error instanceof Error ? error.message : 'The scene could not continue.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   if (loadingCharacter || loadingSessions) {
@@ -592,19 +731,19 @@ export default function ChatPage() {
       {/* Content Layer */}
       <div className="flex flex-col h-full relative z-10">
         {/* Minimal Header */}
-        <header className="flex items-center gap-3 border-b border-border/30 bg-background/60 backdrop-blur-md px-4 py-3 shadow-sm">
+        <header className="flex items-center gap-3 border-b border-border/70 bg-background/86 px-4 py-3 shadow-sm backdrop-blur-xl">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
             onClick={() => navigate('/')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
           {/* Character info - centered */}
-          <div className="flex-1 flex items-center justify-center gap-3">
-            <Avatar className="h-10 w-10 border-2 border-primary/40">
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+            <Avatar className="h-10 w-10 border border-primary/35 shadow-sm">
               <AvatarImage src={character.avatarUrl} alt={character.name} />
               <AvatarFallback
                 className="text-sm font-medium text-white"
@@ -613,16 +752,31 @@ export default function ChatPage() {
                 {characterInitials}
               </AvatarFallback>
             </Avatar>
-            <h1 className="text-lg font-semibold">{character.name}</h1>
+            <div className="min-w-0 text-center">
+              <h1 className="truncate text-base font-semibold sm:text-lg">{character.name}</h1>
+              <div className="hidden items-center justify-center gap-1.5 sm:flex">
+                <p className="text-xs text-muted-foreground">
+                  {activePersona?.name ? `As ${activePersona.name}` : 'Roleplay session'}
+                </p>
+                <Badge variant="outline" className="h-5 border-border/70 px-1.5 text-[10px] text-muted-foreground">
+                  {contentRatingLabels[contentRating]}
+                </Badge>
+                {explicitProviderBlocked && (
+                  <Badge className="h-5 border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] text-amber-200 hover:bg-amber-500/10">
+                    Provider switch needed
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 p-1">
 
             {/* Environment Settings Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md">
                   <Settings className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -697,7 +851,7 @@ export default function ChatPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
+                <Button variant="ghost" size="sm" className="h-8 gap-2 rounded-md px-2">
                   <User className="h-4 w-4" />
                   <Badge variant="secondary" className="text-xs font-normal">
                     {activePersona?.name ?? 'You'}
@@ -726,7 +880,7 @@ export default function ChatPage() {
         {/* Active Narrative Directives Bar */}
         <AnimatePresence>
           {directives.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-background/40 border-b border-border/20 backdrop-blur-sm overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 overflow-hidden border-b border-border/40 bg-background/55 px-4 py-2 backdrop-blur-sm">
               <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
                 <Zap className="h-2.5 w-2.5 fill-current" />
                 Directives:
@@ -763,7 +917,7 @@ export default function ChatPage() {
           {loadingMessages ? (
             <ChatLoadingSkeleton />
           ) : (
-            <div className="py-4 max-w-3xl mx-auto">
+            <div className="mx-auto max-w-3xl py-5">
               {messages.map(message => (
                 <ChatMessageBubble
                   key={message.id}
@@ -794,6 +948,10 @@ export default function ChatPage() {
           onGenerateMessage={handleGenerateUserMessage}
           onRegenerateUserMessage={handleRegenerateUserMessage}
           hasUserMessages={messages.some(m => m.role === 'user')}
+          sceneActions={SCENE_ACTION_BUTTONS}
+          onSceneAction={handleSceneAction}
+          sceneActionsDisabled={addMessage.isPending || isTyping}
+          explicitActionsDisabled={!explicitProviderAvailable}
         />
 
         {/* Edit Message Dialog */}

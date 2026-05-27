@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageShell } from '@/components/layout/PageShell';
 import { useCanonEvents, useDeleteCanonEvent } from '@/hooks/useCanonEvents';
 import { useCharacters } from '@/hooks/useCharacters';
 import { useToast } from '@/hooks/use-toast';
@@ -36,28 +37,26 @@ export default function CanonPage() {
 
   if (loadingEvents) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-background">
         <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-foreground">Canon Events</h1>
-        <p className="mt-1 text-muted-foreground">
-          Your confirmed story timeline across all characters
-        </p>
-      </div>
+    <PageShell
+      title="Canon Events"
+      description="Review the confirmed story beats that shape continuity across characters."
+      meta={canonEvents?.length ? <span className="text-xs font-medium uppercase tracking-[0.14em] text-primary">{canonEvents.length} event{canonEvents.length === 1 ? '' : 's'}</span> : undefined}
+    >
 
       {!canonEvents?.length ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-4 rounded-full bg-muted p-6">
-            <Scroll className="h-8 w-8 text-muted-foreground" />
+        <div className="empty-state min-h-[360px]">
+          <div className="mb-5 rounded-lg bg-primary/10 p-5 text-primary ring-1 ring-primary/20">
+            <Scroll className="h-8 w-8" />
           </div>
-          <h2 className="font-display text-xl font-semibold">No canon events yet</h2>
-          <p className="mt-2 max-w-sm text-muted-foreground">
+          <h2 className="text-xl font-semibold">No canon events yet</h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
             Mark messages as canon during roleplay to build your story timeline.
           </p>
         </div>
@@ -85,7 +84,7 @@ export default function CanonPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="font-display font-semibold">{character.name}</h2>
+                    <h2 className="font-semibold">{character.name}</h2>
                     <p className="text-xs text-muted-foreground">
                       {events.length} canon event{events.length !== 1 ? 's' : ''}
                     </p>
@@ -101,7 +100,7 @@ export default function CanonPage() {
                 {/* Timeline */}
                 <div className="relative ml-5 border-l-2 border-primary/30 pl-6 space-y-4">
                   {events.map(event => (
-                    <Card key={event.id} className="canon-marker relative">
+                    <Card key={event.id} className="premium-card canon-marker relative">
                       {/* Timeline dot */}
                       <div className="absolute -left-[31px] top-4 h-3 w-3 rounded-full bg-primary border-2 border-background" />
                       
@@ -138,6 +137,6 @@ export default function CanonPage() {
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
