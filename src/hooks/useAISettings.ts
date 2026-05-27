@@ -1,70 +1,43 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AIProvider, AISettings } from '@/types';
+
+const STORAGE_KEY = 'kindle-your-start:ai-settings:v2';
+
+const DEFAULTS: AISettings = {
+  provider: 'openai',
+  lmstudioEndpoint: 'http://localhost:1234/v1',
+  lmstudioModel: 'default',
+  openrouterModel: 'anthropic/claude-3.5-sonnet',
+  openaiModel: 'gpt-4o-mini',
+  temperature: 0.8,
+  maxTokens: 2048,
+  systemPromptOverride: undefined,
+};
+
+function loadSettings(): AISettings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { ...DEFAULTS };
+    return { ...DEFAULTS, ...JSON.parse(raw) } as AISettings;
+  } catch {
+    return { ...DEFAULTS };
+  }
+}
+
+function saveSettings(settings: AISettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Private browsing or quota — silently ignore
+  }
+}
 
 export function useAISettings() {
   return useQuery({
     queryKey: ['ai-settings'],
-    queryFn: async (): Promise<AISettings> => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-
-      // Try to get user's existing settings
-      const { data, error } = await supabase
-        .from('ai_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      // If no settings exist for this user, create default settings
-      if (!data) {
-        const defaultSettings = {
-          user_id: user.id,
-          provider: 'openai',
-          lmstudio_endpoint: 'http://localhost:1234/v1',
-          lmstudio_model: 'default',
-          openrouter_model: 'anthropic/claude-3.5-sonnet',
-          openai_model: 'gpt-4o-mini',
-          temperature: 0.8,
-          max_tokens: 2048,
-          system_prompt_override: null,
-        };
-
-        const { data: newData, error: insertError } = await supabase
-          .from('ai_settings')
-          .insert(defaultSettings)
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        return {
-          provider: newData.provider as AIProvider,
-          lmstudioEndpoint: newData.lmstudio_endpoint,
-          lmstudioModel: newData.lmstudio_model,
-          openrouterModel: newData.openrouter_model,
-          openaiModel: newData.openai_model ?? 'gpt-4o-mini',
-          temperature: Number(newData.temperature),
-          maxTokens: newData.max_tokens,
-          systemPromptOverride: newData.system_prompt_override ?? undefined,
-        };
-      }
-
-      return {
-        provider: data.provider as AIProvider,
-        lmstudioEndpoint: data.lmstudio_endpoint,
-        lmstudioModel: data.lmstudio_model,
-        openrouterModel: data.openrouter_model,
-        openaiModel: data.openai_model ?? 'gpt-4o-mini',
-        temperature: Number(data.temperature),
-        maxTokens: data.max_tokens,
-        systemPromptOverride: data.system_prompt_override ?? undefined,
-      };
-    },
+    queryFn: (): AISettings => loadSettings(),
+    staleTime: Infinity, // localStorage never goes stale between renders
   });
 }
 
@@ -73,35 +46,9 @@ export function useUpdateAISettings() {
 
   return useMutation({
     mutationFn: async (data: Partial<AISettings>): Promise<void> => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Get user's settings
-      const { data: existing, error: fetchError } = await supabase
-        .from('ai_settings')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const updateData: Record<string, unknown> = {};
-      if (data.provider !== undefined) updateData.provider = data.provider;
-      if (data.lmstudioEndpoint !== undefined) updateData.lmstudio_endpoint = data.lmstudioEndpoint;
-      if (data.lmstudioModel !== undefined) updateData.lmstudio_model = data.lmstudioModel;
-      if (data.openrouterModel !== undefined) updateData.openrouter_model = data.openrouterModel;
-      if (data.openaiModel !== undefined) updateData.openai_model = data.openaiModel;
-      if (data.temperature !== undefined) updateData.temperature = data.temperature;
-      if (data.maxTokens !== undefined) updateData.max_tokens = data.maxTokens;
-      if (data.systemPromptOverride !== undefined) updateData.system_prompt_override = data.systemPromptOverride;
-
-      const { error } = await supabase
-        .from('ai_settings')
-        .update(updateData)
-        .eq('id', existing.id);
-
-      if (error) throw error;
+      const current = loadSettings();
+      const updated = { ...current, ...data };
+      saveSettings(updated);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-settings'] });

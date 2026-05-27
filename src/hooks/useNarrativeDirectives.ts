@@ -40,7 +40,7 @@ export const DIRECTIVE_TEMPLATES: Record<string, Omit<NarrativeDirective, 'id'>>
   },
 };
 
-export function useNarrativeDirectives(characterId?: string) {
+export function useNarrativeDirectives(_characterId?: string) {
   const [directives, setDirectives] = useState<NarrativeDirective[]>([]);
 
   const addDirective = useCallback((directive: Omit<NarrativeDirective, 'id'>) => {

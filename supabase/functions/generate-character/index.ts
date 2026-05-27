@@ -1,10 +1,10 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -13,7 +13,42 @@ serve(async (req) => {
   }
 
   try {
-    const { existingData, preferences } = await req.json();
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { existingData, preferences, userOpenrouterApiKey, userOpenaiApiKey } = await req.json();
+
+    // Resolve API keys: server secrets take priority, user-provided keys as fallback
+    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY") || userOpenrouterApiKey;
+    const openaiKey = Deno.env.get("OPENAI_API_KEY") || userOpenaiApiKey;
+
+    if (!openrouterKey && !openaiKey) {
+      return new Response(
+        JSON.stringify({ error: "No API key configured. Add an OpenAI or OpenRouter key in Settings → API Keys." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const filledFields: string[] = [];
     const emptyFields: string[] = [];
@@ -77,27 +112,41 @@ Return ONLY valid JSON with this exact structure, no markdown wrapping:
 
 For fields the user already filled, return them unchanged.`;
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
-      throw new Error("LOVABLE_API_KEY not configured");
-    }
-
-    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.0-flash",
-        messages: [
-          { role: "system", content: "You are a character generator. Return only valid JSON, no markdown code blocks or additional text." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.85,
-        max_tokens: 2000,
-      }),
-    });
+    // Use OpenRouter when available, otherwise fall back to OpenAI
+    const response = openrouterKey
+      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openrouterKey}`,
+            "X-Title": "Kindle Your Start — Character Generator",
+          },
+          body: JSON.stringify({
+            model: "anthropic/claude-3-haiku",
+            messages: [
+              { role: "system", content: "You are a character generator. Return only valid JSON, no markdown code blocks or additional text." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.85,
+            max_tokens: 2000,
+          }),
+        })
+      : await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a character generator. Return only valid JSON, no markdown code blocks or additional text." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.85,
+            max_completion_tokens: 2000,
+          }),
+        });
 
     if (!response.ok) {
       const errText = await response.text();
@@ -119,7 +168,7 @@ For fields the user already filled, return them unchanged.`;
   } catch (error) {
     console.error("generate-character error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to generate character" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Failed to generate character" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

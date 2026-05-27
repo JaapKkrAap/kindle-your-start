@@ -57,6 +57,9 @@ const ChatRequestSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().min(1).max(8192).optional(),
   systemPromptOverride: z.string().max(10000).optional(),
+  // User-provided API keys — used as fallback when server-side secrets are absent
+  userOpenaiApiKey: z.string().max(200).optional(),
+  userOpenrouterApiKey: z.string().max(200).optional(),
 });
 
 type ChatRequest = z.infer<typeof ChatRequestSchema>;
@@ -200,9 +203,9 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(token);
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-    if (authError || !claimsData?.claims) {
+    if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -274,10 +277,11 @@ serve(async (req) => {
         }),
       });
     } else if (body.provider === "openrouter") {
-      const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+      // Prefer server-side secret; fall back to user-provided key
+      const openrouterKey = Deno.env.get("OPENROUTER_API_KEY") || body.userOpenrouterApiKey;
       if (!openrouterKey) {
         return new Response(
-          JSON.stringify({ error: "OpenRouter API key is not configured on the server. Add OPENROUTER_API_KEY to local env or Supabase secrets." }),
+          JSON.stringify({ error: "OpenRouter API key is not configured. Add your key in Settings → API Keys, or ask your administrator to add OPENROUTER_API_KEY to Supabase secrets." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -287,8 +291,8 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${openrouterKey}`,
-          "HTTP-Referer": Deno.env.get("SITE_URL") || "https://lovable.dev",
-          "X-Title": "Roleplay Character Engine",
+          "HTTP-Referer": Deno.env.get("SITE_URL") || "https://kindle-your-start.app",
+          "X-Title": "Kindle Your Start — Roleplay Engine",
         },
         body: JSON.stringify({
           model: body.openrouterModel || "anthropic/claude-3.5-sonnet",
@@ -298,10 +302,11 @@ serve(async (req) => {
         }),
       });
     } else {
-      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      // Prefer server-side secret; fall back to user-provided key
+      const openaiKey = Deno.env.get("OPENAI_API_KEY") || body.userOpenaiApiKey;
       if (!openaiKey) {
         return new Response(
-          JSON.stringify({ error: "OpenAI API key is not configured on the server. Add OPENAI_API_KEY to local env or Supabase secrets." }),
+          JSON.stringify({ error: "OpenAI API key is not configured. Add your key in Settings → API Keys, or ask your administrator to add OPENAI_API_KEY to Supabase secrets." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -318,7 +323,7 @@ serve(async (req) => {
           "Authorization": `Bearer ${openaiKey}`,
         },
         body: JSON.stringify({
-          model: body.openaiModel || "gpt-5-mini",
+          model: body.openaiModel || "gpt-4o-mini",
           messages: openaiMessages,
           temperature: body.temperature ?? 0.8,
           max_completion_tokens: body.maxTokens ?? 2048,

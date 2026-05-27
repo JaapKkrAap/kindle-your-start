@@ -2,10 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CanonEvent } from '@/types';
 
-async function getCurrentUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  return user.id;
+const TABLE = 'canon_events';
+
+function rowToCanonEvent(row: Record<string, unknown>): CanonEvent {
+  return {
+    id: row.id as string,
+    characterId: row.character_id as string,
+    personaId: (row.persona_id as string | undefined) ?? undefined,
+    title: row.title as string,
+    description: row.description as string,
+    involvedCharacters: (row.involved_characters as string[]) ?? [],
+    timestamp: new Date(row.event_timestamp as string),
+    createdAt: new Date(row.created_at as string),
+    sourceMessageIds: (row.source_message_ids as string[]) ?? [],
+  };
 }
 
 interface CreateCanonEventInput {
@@ -22,29 +32,13 @@ export function useCanonEvents(characterId?: string) {
     queryKey: ['canon-events', characterId],
     queryFn: async (): Promise<CanonEvent[]> => {
       let query = supabase
-        .from('canon_events')
+        .from(TABLE)
         .select('*')
         .order('event_timestamp', { ascending: false });
-
-      if (characterId) {
-        query = query.eq('character_id', characterId);
-      }
-
+      if (characterId) query = query.eq('character_id', characterId);
       const { data, error } = await query;
-
       if (error) throw error;
-
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        characterId: row.character_id,
-        personaId: row.persona_id ?? undefined,
-        title: row.title,
-        description: row.description,
-        involvedCharacters: row.involved_characters,
-        timestamp: new Date(row.event_timestamp),
-        createdAt: new Date(row.created_at),
-        sourceMessageIds: row.source_message_ids,
-      }));
+      return (data ?? []).map((r) => rowToCanonEvent(r as Record<string, unknown>));
     },
   });
 }
@@ -54,22 +48,21 @@ export function useCreateCanonEvent() {
 
   return useMutation({
     mutationFn: async (input: CreateCanonEventInput) => {
-      const userId = await getCurrentUserId();
-      
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from('canon_events')
+        .from(TABLE)
         .insert({
-          user_id: userId,
           character_id: input.characterId,
           persona_id: input.personaId ?? null,
           title: input.title,
           description: input.description,
           source_message_ids: input.sourceMessageIds,
           event_timestamp: input.eventTimestamp.toISOString(),
+          involved_characters: [],
+          user_id: user?.id ?? null,
         })
         .select()
         .single();
-
       if (error) throw error;
       return data;
     },
@@ -85,11 +78,7 @@ export function useDeleteCanonEvent() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('canon_events')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from(TABLE).delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

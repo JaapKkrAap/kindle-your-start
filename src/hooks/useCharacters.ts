@@ -2,10 +2,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Character, CharacterFormData } from '@/types';
 
-async function getCurrentUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  return user.id;
+const TABLE = 'characters';
+
+function rowToCharacter(row: Record<string, unknown>): Character {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    avatarUrl: (row.avatar_url as string | undefined) ?? undefined,
+    backstory: row.backstory as string,
+    personalityTraits: (row.personality_traits as string[]) ?? [],
+    speechStyle: row.speech_style as string,
+    behavioralBoundaries: row.behavioral_boundaries as string,
+    firstMessage: row.first_message as string,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+    lastPlayedAt: row.last_played_at ? new Date(row.last_played_at as string) : undefined,
+  };
 }
 
 export function useCharacters() {
@@ -13,25 +25,11 @@ export function useCharacters() {
     queryKey: ['characters'],
     queryFn: async (): Promise<Character[]> => {
       const { data, error } = await supabase
-        .from('characters')
+        .from(TABLE)
         .select('*')
         .order('updated_at', { ascending: false });
-      
       if (error) throw error;
-      
-      return data.map(char => ({
-        id: char.id,
-        name: char.name,
-        avatarUrl: char.avatar_url ?? undefined,
-        backstory: char.backstory,
-        personalityTraits: char.personality_traits,
-        speechStyle: char.speech_style,
-        behavioralBoundaries: char.behavioral_boundaries,
-        firstMessage: char.first_message,
-        createdAt: new Date(char.created_at),
-        updatedAt: new Date(char.updated_at),
-        lastPlayedAt: char.last_played_at ? new Date(char.last_played_at) : undefined,
-      }));
+      return (data ?? []).map((r) => rowToCharacter(r as Record<string, unknown>));
     },
   });
 }
@@ -41,28 +39,14 @@ export function useCharacter(id: string | undefined) {
     queryKey: ['characters', id],
     queryFn: async (): Promise<Character | null> => {
       if (!id) return null;
-      
       const { data, error } = await supabase
-        .from('characters')
+        .from(TABLE)
         .select('*')
         .eq('id', id)
-        .single();
-      
+        .maybeSingle();
       if (error) throw error;
-      
-      return {
-        id: data.id,
-        name: data.name,
-        avatarUrl: data.avatar_url ?? undefined,
-        backstory: data.backstory,
-        personalityTraits: data.personality_traits,
-        speechStyle: data.speech_style,
-        behavioralBoundaries: data.behavioral_boundaries,
-        firstMessage: data.first_message,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-        lastPlayedAt: data.last_played_at ? new Date(data.last_played_at) : undefined,
-      };
+      if (!data) return null;
+      return rowToCharacter(data as Record<string, unknown>);
     },
     enabled: !!id,
   });
@@ -70,41 +54,26 @@ export function useCharacter(id: string | undefined) {
 
 export function useCreateCharacter() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (data: CharacterFormData): Promise<Character> => {
-      const userId = await getCurrentUserId();
-      
-      const { data: created, error } = await supabase
-        .from('characters')
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: row, error } = await supabase
+        .from(TABLE)
         .insert({
-          user_id: userId,
           name: data.name,
-          avatar_url: data.avatarUrl,
+          avatar_url: data.avatarUrl ?? null,
           backstory: data.backstory,
           personality_traits: data.personalityTraits,
           speech_style: data.speechStyle,
           behavioral_boundaries: data.behavioralBoundaries,
           first_message: data.firstMessage,
+          user_id: user?.id ?? null,
         })
         .select()
         .single();
-      
       if (error) throw error;
-      
-      return {
-        id: created.id,
-        name: created.name,
-        avatarUrl: created.avatar_url ?? undefined,
-        backstory: created.backstory,
-        personalityTraits: created.personality_traits,
-        speechStyle: created.speech_style,
-        behavioralBoundaries: created.behavioral_boundaries,
-        firstMessage: created.first_message,
-        createdAt: new Date(created.created_at),
-        updatedAt: new Date(created.updated_at),
-        lastPlayedAt: undefined,
-      };
+      return rowToCharacter(row as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['characters'] });
@@ -114,7 +83,7 @@ export function useCreateCharacter() {
 
 export function useUpdateCharacter() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CharacterFormData> }): Promise<void> => {
       const updateData: Record<string, unknown> = {};
@@ -125,12 +94,8 @@ export function useUpdateCharacter() {
       if (data.speechStyle !== undefined) updateData.speech_style = data.speechStyle;
       if (data.behavioralBoundaries !== undefined) updateData.behavioral_boundaries = data.behavioralBoundaries;
       if (data.firstMessage !== undefined) updateData.first_message = data.firstMessage;
-      
-      const { error } = await supabase
-        .from('characters')
-        .update(updateData)
-        .eq('id', id);
-      
+
+      const { error } = await supabase.from(TABLE).update(updateData).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_, { id }) => {
@@ -142,14 +107,10 @@ export function useUpdateCharacter() {
 
 export function useDeleteCharacter() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const { error } = await supabase
-        .from('characters')
-        .delete()
-        .eq('id', id);
-      
+      const { error } = await supabase.from(TABLE).delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

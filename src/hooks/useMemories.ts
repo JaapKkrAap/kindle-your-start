@@ -2,6 +2,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Memory, MemoryCategory } from '@/types';
 
+const TABLE = 'memories';
+
+function rowToMemory(row: Record<string, unknown>): Memory {
+  return {
+    id: row.id as string,
+    characterId: row.character_id as string,
+    personaId: (row.persona_id as string | undefined) ?? undefined,
+    category: row.category as MemoryCategory,
+    content: row.content as string,
+    importance: row.importance as number,
+    isPinned: (row.is_pinned as boolean) ?? false,
+    createdAt: new Date(row.created_at as string),
+    sourceMessageId: (row.source_message_id as string | undefined) ?? undefined,
+  };
+}
+
 export function useMemories(characterId?: string, personaId?: string) {
   return useQuery({
     queryKey: ['memories', characterId, personaId],
@@ -9,33 +25,21 @@ export function useMemories(characterId?: string, personaId?: string) {
       if (!characterId) return [];
 
       let query = supabase
-        .from('memories')
+        .from(TABLE)
         .select('*')
         .eq('character_id', characterId)
         .order('is_pinned', { ascending: false })
         .order('importance', { ascending: false })
         .limit(100);
 
-      // Include both character-wide memories (null persona) and persona-specific ones
+      // Include character-wide memories (null persona) and persona-specific ones
       if (personaId) {
         query = query.or(`persona_id.is.null,persona_id.eq.${personaId}`);
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-
-      return data.map(memory => ({
-        id: memory.id,
-        characterId: memory.character_id,
-        personaId: memory.persona_id ?? undefined,
-        category: memory.category as MemoryCategory,
-        content: memory.content,
-        importance: memory.importance,
-        isPinned: memory.is_pinned,
-        createdAt: new Date(memory.created_at),
-        sourceMessageId: memory.source_message_id ?? undefined,
-      }));
+      return (data ?? []).map((r) => rowToMemory(r as Record<string, unknown>));
     },
     enabled: !!characterId,
   });
@@ -46,14 +50,10 @@ export function useDeleteMemory() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('memories')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from(TABLE).delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: (_, id) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memories'] });
     },
   });
@@ -64,11 +64,7 @@ export function useTogglePinMemory() {
 
   return useMutation({
     mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
-      const { error } = await supabase
-        .from('memories')
-        .update({ is_pinned: isPinned })
-        .eq('id', id);
-
+      const { error } = await supabase.from(TABLE).update({ is_pinned: isPinned }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

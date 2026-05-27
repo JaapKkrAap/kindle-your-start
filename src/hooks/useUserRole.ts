@@ -1,51 +1,55 @@
- import { useQuery } from '@tanstack/react-query';
- import { supabase } from '@/integrations/supabase/client';
- import { useAuth } from '@/hooks/useAuth';
- 
- export function useUserRole() {
-   const { user } = useAuth();
-   const userId = user?.id;
- 
-   const { data: isAdmin, isLoading: isAdminLoading } = useQuery({
-     queryKey: ['user-role', 'admin', userId],
-     queryFn: async () => {
-       if (!userId) return false;
-       const { data, error } = await supabase.rpc('has_role', {
-         _user_id: userId,
-         _role: 'admin'
-       });
-       if (error) {
-         console.error('Error checking admin role:', error);
-         return false;
-       }
-       return data ?? false;
-     },
-     enabled: !!userId,
-     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-   });
- 
-   const { data: isModerator, isLoading: isModeratorLoading } = useQuery({
-     queryKey: ['user-role', 'moderator', userId],
-     queryFn: async () => {
-       if (!userId) return false;
-       const { data, error } = await supabase.rpc('has_role', {
-         _user_id: userId,
-         _role: 'moderator'
-       });
-       if (error) {
-         console.error('Error checking moderator role:', error);
-         return false;
-       }
-       return data ?? false;
-     },
-     enabled: !!userId,
-     staleTime: 5 * 60 * 1000,
-   });
- 
-   return {
-     isAdmin: isAdmin ?? false,
-     isModerator: isModerator ?? false,
-     isLoading: isAdminLoading || isModeratorLoading,
-     userId,
-   };
- }
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+type AppRole = 'admin' | 'moderator' | 'user';
+
+export function useUserRole() {
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) {
+        setIsLoading(false);
+        return;
+      }
+      setUserId(session.user.id);
+
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id);
+
+      setRoles((data ?? []).map((r) => r.role as AppRole));
+      setIsLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        setUserId(null);
+        setRoles([]);
+        setIsLoading(false);
+        return;
+      }
+      setUserId(session.user.id);
+
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id);
+
+      setRoles((data ?? []).map((r) => r.role as AppRole));
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return {
+    isAdmin: roles.includes('admin'),
+    isModerator: roles.includes('moderator') || roles.includes('admin'),
+    isLoading,
+    userId,
+  };
+}

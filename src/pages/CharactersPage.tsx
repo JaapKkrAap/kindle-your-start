@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, ShieldCheck, Sparkles } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { AlertTriangle, Plus, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CharacterCard } from '@/components/characters/CharacterCard';
 import { CharacterFormDialog } from '@/components/characters/CharacterFormDialog';
@@ -15,11 +16,13 @@ import {
   seedCategories,
   seedCharacters,
 } from '@/data/seedCharacters';
+import { getApiKeys } from '@/hooks/useApiKeys';
+import { useAISettings } from '@/hooks/useAISettings';
 import { useCharacters, useCreateCharacter, useUpdateCharacter, useDeleteCharacter } from '@/hooks/useCharacters';
 import { useStartSeedCharacter } from '@/hooks/useStartSeedCharacter';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import type { Character, CharacterFormData } from '@/types';
+import type { Character, CharacterFormData, ContentRating } from '@/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +47,35 @@ export default function CharactersPage() {
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [deletingCharacter, setDeletingCharacter] = useState<Character | null>(null);
   const [adultConfirmed, setAdultConfirmed] = useState(() => isAdultContentConfirmed());
+  const [search, setSearch] = useState('');
+  const [ratingFilter, setRatingFilter] = useState<ContentRating | 'all'>('all');
+
+  const { data: aiSettings } = useAISettings();
+
+  // Show setup banner when no API key is reachable for the selected provider
+  const needsSetup = useMemo(() => {
+    if (!aiSettings) return false;
+    const keys = getApiKeys();
+    if (aiSettings.provider === 'lmstudio') return false; // local — can't check
+    if (aiSettings.provider === 'openai') return !keys.openaiApiKey;
+    if (aiSettings.provider === 'openrouter') return !keys.openrouterApiKey;
+    return false;
+  }, [aiSettings]);
+
+  // Filtered seed characters for discovery
+  const filteredSeeds = useMemo(() => {
+    return seedCharacters.filter(seed => {
+      const matchesRating = ratingFilter === 'all' || seed.contentRating === ratingFilter;
+      const q = search.toLowerCase();
+      const matchesSearch = !q || (
+        seed.name.toLowerCase().includes(q) ||
+        seed.category.toLowerCase().includes(q) ||
+        seed.previewLine.toLowerCase().includes(q) ||
+        seed.tags.some(t => t.toLowerCase().includes(q))
+      );
+      return matchesRating && matchesSearch;
+    });
+  }, [search, ratingFilter]);
 
   const handleConfirmAdult = () => {
     confirmAdultContent();
@@ -196,6 +228,89 @@ export default function CharactersPage() {
         </div>
       ) : (
         <div className="space-y-10">
+
+          {/* Setup banner — shown when provider has no API key */}
+          {needsSetup && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-semibold text-amber-300">API key needed before you can chat</p>
+                <p className="mt-1 leading-6 text-amber-200/70">
+                  Your current provider ({aiSettings?.provider === 'openai' ? 'OpenAI' : 'OpenRouter'}) requires an API key.
+                  Add yours in Settings so characters can respond.
+                </p>
+              </div>
+              <Link to="/settings">
+                <Button size="sm" variant="outline" className="shrink-0 border-amber-500/40 text-amber-300 hover:bg-amber-500/10">
+                  Add key →
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {/* Search + filter row */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search characters, moods, tags…"
+                className="bg-muted/40 pl-9 pr-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'romantic', 'spicy', 'explicit'] as const).map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRatingFilter(r)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    ratingFilter === r
+                      ? 'border-primary/60 bg-primary/15 text-primary'
+                      : 'border-border/70 text-muted-foreground hover:border-primary/35 hover:text-foreground'
+                  }`}
+                >
+                  {r === 'all' ? 'All ratings' : contentRatingLabels[r]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search results or browsing layout */}
+          {search || ratingFilter !== 'all' ? (
+            <section className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {filteredSeeds.length} character{filteredSeeds.length === 1 ? '' : 's'} found
+              </p>
+              {filteredSeeds.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {filteredSeeds.map(seed => (
+                    <SeedCharacterCard
+                      key={seed.templateId}
+                      seed={seed}
+                      onStart={startSeedCharacter}
+                      disabled={isStartingSeedCharacter}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                  No characters match that search. Try a different keyword or rating.
+                </div>
+              )}
+            </section>
+          ) : (
+            <>
           <section className="space-y-4">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
@@ -207,13 +322,6 @@ export default function CharactersPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Each starter copies into your private character library on first chat.
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(contentRatingLabels).map(([rating, label]) => (
-                  <Badge key={rating} variant="outline" className="border-border/70 text-muted-foreground">
-                    {label}
-                  </Badge>
-                ))}
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -250,7 +358,8 @@ export default function CharactersPage() {
                 </div>
               </section>
             );
-          })}
+          })}</>
+          )}
 
           <section className="space-y-4">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
