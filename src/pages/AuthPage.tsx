@@ -212,21 +212,21 @@ export default function AuthPage() {
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               <Button
-                type="button"
-                onClick={handleGuestAccess}
+                type="submit"
                 className="w-full glow-primary"
                 disabled={loading}
               >
-                {loading ? 'Please wait...' : 'Continue as Guest'}
+                {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
               </Button>
 
               <Button
-                type="submit"
+                type="button"
+                onClick={handleGuestAccess}
                 variant="outline"
                 className="w-full border-border/70"
                 disabled={loading}
               >
-                {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+                Continue as Guest
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">

@@ -23,19 +23,13 @@ import type { AIProvider } from '@/types';
 import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
 
 const OPENAI_MODELS = [
-  { id: 'gpt-5-mini', name: 'GPT-5 mini' },
-  { id: 'gpt-5-nano', name: 'GPT-5 nano' },
-  { id: 'gpt-5.2', name: 'GPT-5.2' },
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o mini' },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+  { id: 'o3-mini', name: 'o3 mini' },
+  { id: 'o1-mini', name: 'o1 mini' },
 ];
 
-const OPENROUTER_MODELS = [
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
-  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus' },
-  { id: 'openai/gpt-4-turbo', name: 'GPT-4 Turbo' },
-  { id: 'openai/gpt-4o', name: 'GPT-4o' },
-  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' },
-  { id: 'mistralai/mistral-large', name: 'Mistral Large' },
-];
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -48,7 +42,7 @@ export default function SettingsPage() {
     lmstudioEndpoint: 'http://localhost:1234/v1',
     lmstudioModel: 'default',
     openrouterModel: 'anthropic/claude-3.5-sonnet',
-    openaiModel: 'gpt-5-mini',
+    openaiModel: 'gpt-4o-mini',
     temperature: 0.8,
     maxTokens: 2048,
     systemPromptOverride: '',
@@ -253,22 +247,19 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>OpenRouter Model</Label>
-                      <Select
+                      <Label htmlFor="openrouter-model">OpenRouter Model</Label>
+                      <Input
+                        id="openrouter-model"
                         value={localSettings.openrouterModel}
-                        onValueChange={value => setLocalSettings(s => ({ ...s, openrouterModel: value }))}
-                      >
-                        <SelectTrigger className="bg-muted/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {OPENROUTER_MODELS.map(model => (
-                            <SelectItem key={model.id} value={model.id}>
-                              {model.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={e => setLocalSettings(s => ({ ...s, openrouterModel: e.target.value }))}
+                        placeholder="e.g. anthropic/claude-3.5-sonnet"
+                        className="bg-muted/50 font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter any model ID from{' '}
+                        <span className="font-medium text-foreground">openrouter.ai/models</span>
+                        , e.g. <span className="font-mono">meta-llama/llama-3.1-70b-instruct</span>
+                      </p>
                     </div>
                   </div>
                 ) : (
