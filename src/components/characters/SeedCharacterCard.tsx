@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Flame, Lock, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ interface SeedCharacterCardProps {
 }
 
 export function SeedCharacterCard({ seed, onStart, disabled }: SeedCharacterCardProps) {
+  const [imgError, setImgError] = useState(false);
   const initials = seed.name
     .split(' ')
     .map(part => part[0])
@@ -33,12 +35,13 @@ export function SeedCharacterCard({ seed, onStart, disabled }: SeedCharacterCard
             {seed.age}+
           </div>
           <div className="absolute left-1/2 top-[38%] flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full bg-black/22 text-3xl font-semibold text-white/90 ring-1 ring-white/20">
-            {seed.portraitPath ? (
+            {seed.portraitPath && !imgError ? (
               <img
                 src={seed.portraitPath}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"
+                onError={() => setImgError(true)}
               />
             ) : (
               initials

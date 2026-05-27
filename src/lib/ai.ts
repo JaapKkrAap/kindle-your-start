@@ -15,7 +15,7 @@ interface ChatCompletionParams {
   canonEvents?: { title: string; description: string }[];
   narrativeDirectives?: NarrativeDirective[];
   settings: AISettings;
-  contentRating?: ContentRating;
+  contentRating: ContentRating;
   mode?: 'roleplay' | 'generate_user_message';
   userInstruction?: string;
 }

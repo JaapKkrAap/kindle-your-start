@@ -27,7 +27,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { isAdmin } = useUserRole();
   const studioItems = isAdmin ? [...STUDIO_NAV_ITEMS, ADMIN_NAV_ITEM] : STUDIO_NAV_ITEMS;
-  const mobileItems = [...PLAY_NAV_ITEMS, ...STUDIO_NAV_ITEMS].slice(0, 5);
+  const mobileItems = [...PLAY_NAV_ITEMS, ...studioItems];
 
   const isItemActive = (path: string) =>
     location.pathname === path ||
@@ -91,7 +91,7 @@ export function AppSidebar() {
       </aside>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border/80 bg-background/95 px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+        <div className="mx-auto grid max-w-md gap-1" style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}>
           {mobileItems.map(({ path, icon: Icon, label }) => {
             const active = isItemActive(path);
             return (

@@ -645,7 +645,7 @@ export default function ChatPage() {
         })) ?? [],
         narrativeDirectives: getDirectivesForApi(),
         settings: aiSettings,
-        contentRating,
+        contentRating: action.explicit ? 'explicit' : contentRating,
       });
 
       await addMessage.mutateAsync({

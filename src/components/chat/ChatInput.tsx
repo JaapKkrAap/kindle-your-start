@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
 import { Send, Wand2, Loader2, Sparkles } from 'lucide-react';
 
 export interface SceneMomentumAction {
@@ -39,6 +40,7 @@ export function ChatInput({
   sceneActionsDisabled,
   explicitActionsDisabled,
 }: ChatInputProps) {
+  const { toast } = useToast();
   const [message, setMessage] = useState('');
   const [showGeneratePopover, setShowGeneratePopover] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -81,7 +83,9 @@ export function ChatInput({
       setShowGeneratePopover(false);
       textareaRef.current?.focus();
     } catch (error) {
-      console.error('Failed to generate message:', error);
+      if (error instanceof Error) {
+        toast({ title: 'Could not generate message', description: error.message, variant: 'destructive' });
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -97,7 +101,9 @@ export function ChatInput({
       setCustomInstruction('');
       textareaRef.current?.focus();
     } catch (error) {
-      console.error('Failed to regenerate message:', error);
+      if (error instanceof Error) {
+        toast({ title: 'Could not regenerate message', description: error.message, variant: 'destructive' });
+      }
     } finally {
       setIsGenerating(false);
     }

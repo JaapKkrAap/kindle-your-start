@@ -288,7 +288,7 @@ export function PersonaFormDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading} className="glow-primary">
+              <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90 glow-primary">
                 {isLoading ? 'Saving...' : initialData ? 'Save Changes' : 'Create Persona'}
               </Button>
             </div>

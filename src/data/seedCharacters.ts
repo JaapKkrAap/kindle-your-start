@@ -415,7 +415,11 @@ export function getSeedCharacterMap() {
 }
 
 export function setSeedCharacterMap(map: Record<string, string>) {
-  localStorage.setItem(SEED_CHARACTER_MAP_KEY, JSON.stringify(map));
+  try {
+    localStorage.setItem(SEED_CHARACTER_MAP_KEY, JSON.stringify(map));
+  } catch {
+    // Ignore storage errors (private browsing, quota exceeded)
+  }
 }
 
 export function getSeedCharacterRating(characterId?: string): ContentRating | undefined {
@@ -433,7 +437,11 @@ export function inferContentRatingFromBackstory(backstory?: string): ContentRati
 export function setSeedCharacterRating(characterId: string, rating: ContentRating) {
   const map = readMap(SEED_CHARACTER_RATING_MAP_KEY);
   map[characterId] = rating;
-  localStorage.setItem(SEED_CHARACTER_RATING_MAP_KEY, JSON.stringify(map));
+  try {
+    localStorage.setItem(SEED_CHARACTER_RATING_MAP_KEY, JSON.stringify(map));
+  } catch {
+    // Ignore storage errors (private browsing, quota exceeded)
+  }
 }
 
 export function isAdultContentConfirmed() {
@@ -441,7 +449,11 @@ export function isAdultContentConfirmed() {
 }
 
 export function confirmAdultContent() {
-  localStorage.setItem(ADULT_CONTENT_CONFIRMED_KEY, 'true');
+  try {
+    localStorage.setItem(ADULT_CONTENT_CONFIRMED_KEY, 'true');
+  } catch {
+    // Ignore storage errors (private browsing, quota exceeded)
+  }
 }
 
 export function canProviderHandleExplicit(provider: string | undefined) {
