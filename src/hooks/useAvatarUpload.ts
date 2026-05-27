@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export function useAvatarUpload() {
   const [isUploading, setIsUploading] = useState(false);
@@ -18,26 +17,13 @@ export function useAvatarUpload() {
     setIsUploading(true);
 
     try {
-      // Generate unique filename
-      const ext = file.name.split('.').pop() ?? 'jpg';
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-      // Upload to storage
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(filename, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(data.path);
-
-      return publicUrl;
+      // Convert to base64 data URL — stored locally, no server needed
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+      });
     } finally {
       setIsUploading(false);
     }

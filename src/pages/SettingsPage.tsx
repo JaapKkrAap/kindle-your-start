@@ -19,8 +19,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { PageShell } from '@/components/layout/PageShell';
 import { providerCapabilities } from '@/data/seedCharacters';
+import { getApiKeys, setApiKeys } from '@/hooks/useApiKeys';
 import type { AIProvider } from '@/types';
-import { Bot, Cloud, Save, Server, LogOut, User } from 'lucide-react';
+import { Bot, Cloud, Eye, EyeOff, Key, Save, Server, LogOut, User } from 'lucide-react';
 
 const OPENAI_MODELS = [
   { id: 'gpt-4o', name: 'GPT-4o' },
@@ -47,6 +48,10 @@ export default function SettingsPage() {
     maxTokens: 2048,
     systemPromptOverride: '',
   });
+
+  const [apiKeys, setLocalApiKeys] = useState(() => getApiKeys());
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showOpenrouterKey, setShowOpenrouterKey] = useState(false);
 
   // Sync local state when settings load
   useEffect(() => {
@@ -76,6 +81,8 @@ export default function SettingsPage() {
         maxTokens: localSettings.maxTokens,
         systemPromptOverride: localSettings.systemPromptOverride || undefined,
       });
+      // API keys are saved locally only
+      setApiKeys(apiKeys);
       toast({
         title: 'Settings saved',
         description: 'Your AI configuration has been updated.',
@@ -121,8 +128,12 @@ export default function SettingsPage() {
       }
     >
         <Tabs defaultValue="provider" className="space-y-6">
-          <TabsList className="grid h-auto w-full grid-cols-2 bg-muted/45 p-1 sm:inline-grid sm:w-auto sm:grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 bg-muted/45 p-1 sm:inline-grid sm:w-auto sm:grid-cols-5">
             <TabsTrigger value="provider">AI Provider</TabsTrigger>
+            <TabsTrigger value="apikeys" className="gap-1.5">
+              <Key className="h-3.5 w-3.5" />
+              API Keys
+            </TabsTrigger>
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="prompts">System Prompt</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
@@ -290,6 +301,115 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* API Keys Tab */}
+          <TabsContent value="apikeys" className="space-y-4">
+            <Card className="premium-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  API Keys
+                </CardTitle>
+                <CardDescription>
+                  Add your own API keys so the app can call AI providers on your behalf.
+                  Keys are stored only on this device — never on our servers.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
+                  <p className="font-medium text-foreground">How this works</p>
+                  <p className="mt-1">
+                    Your key is sent directly to the AI provider for each message. If the server has a shared key
+                    configured, that takes priority — your personal key is only used as a fallback.
+                  </p>
+                </div>
+
+                {/* OpenAI Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="openai-key" className="flex items-center gap-2">
+                      <Bot className="h-4 w-4" />
+                      OpenAI API Key
+                    </Label>
+                    <a
+                      href="https://platform.openai.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Get a key →
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="openai-key"
+                      type={showOpenaiKey ? 'text' : 'password'}
+                      value={apiKeys.openaiApiKey}
+                      onChange={e => setLocalApiKeys(k => ({ ...k, openaiApiKey: e.target.value }))}
+                      placeholder="sk-..."
+                      className="bg-muted/50 pr-10 font-mono text-sm"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOpenaiKey(v => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showOpenaiKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showOpenaiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Used for Romantic and Spicy scenes with the OpenAI provider.
+                  </p>
+                </div>
+
+                {/* OpenRouter Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="openrouter-key" className="flex items-center gap-2">
+                      <Cloud className="h-4 w-4" />
+                      OpenRouter API Key
+                    </Label>
+                    <a
+                      href="https://openrouter.ai/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Get a key →
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="openrouter-key"
+                      type={showOpenrouterKey ? 'text' : 'password'}
+                      value={apiKeys.openrouterApiKey}
+                      onChange={e => setLocalApiKeys(k => ({ ...k, openrouterApiKey: e.target.value }))}
+                      placeholder="sk-or-v1-..."
+                      className="bg-muted/50 pr-10 font-mono text-sm"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOpenrouterKey(v => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showOpenrouterKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showOpenrouterKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Unlocks explicit-capable providers like Claude, Mistral, and uncensored open-source models.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/8 p-3 text-xs leading-5 text-amber-200/80">
+                  Keys are saved to this browser only. Clearing site data removes them. Don't share your keys.
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

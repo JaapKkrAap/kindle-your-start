@@ -62,28 +62,15 @@ export interface Memory {
   sourceMessageId?: string;
 }
 
+// Must match the DB CHECK constraint on memories.category
 export type MemoryCategory =
-  | 'fact'
-  | 'preference'
-  | 'relationship'
   | 'event'
-  | 'emotion'
-  | 'goal'
+  | 'relationship'
   | 'location'
   | 'item'
   | 'persona_impression'
   | 'emotional_shift';
 
-export interface NarrativeDirective {
-  id: string;
-  characterId: string;
-  type: 'goal' | 'reveal' | 'escalate' | 'resolve';
-  description: string;
-  triggerCondition?: string;
-  priority: number;
-  isActive: boolean;
-  createdAt: Date;
-}
 
 export interface CanonEvent {
   id: string;

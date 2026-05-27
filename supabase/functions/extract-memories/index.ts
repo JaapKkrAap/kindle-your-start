@@ -11,6 +11,8 @@ interface ExtractMemoriesRequest {
   characterId: string;
   personaId?: string;
   afterMessageId?: string;
+  userOpenrouterApiKey?: string;
+  userOpenaiApiKey?: string;
 }
 
 interface Memory {
@@ -56,7 +58,7 @@ serve(async (req) => {
     const userId = user.id;
 
     const body: ExtractMemoriesRequest = await req.json();
-    const { sessionId, characterId, personaId, afterMessageId } = body;
+    const { sessionId, characterId, personaId, afterMessageId, userOpenrouterApiKey, userOpenaiApiKey } = body;
 
     // Fetch recent messages from the session
     let query = supabaseClient
@@ -102,11 +104,15 @@ serve(async (req) => {
       .join('\n\n');
 
     // Call AI to extract memories
-    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!openrouterKey) {
+    // Try OpenRouter first (server key → user key), then OpenAI as fallback
+    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY") || userOpenrouterApiKey;
+    const openaiKey = Deno.env.get("OPENAI_API_KEY") || userOpenaiApiKey;
+
+    if (!openrouterKey && !openaiKey) {
+      // Silently skip extraction rather than erroring — chat should still work
       return new Response(
-        JSON.stringify({ error: "OpenRouter API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ extracted: 0, message: "No API key available for memory extraction — configure one in Settings." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -137,21 +143,35 @@ Respond ONLY with valid JSON array:
 
 If nothing worth remembering, respond with empty array: []`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openrouterKey}`,
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-3-haiku",
-        messages: [
-          { role: "user", content: extractionPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-      }),
-    });
+    // Use OpenRouter when key available, otherwise fall back to OpenAI
+    const response = openrouterKey
+      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openrouterKey}`,
+            "X-Title": "Kindle Your Start — Memory Extraction",
+          },
+          body: JSON.stringify({
+            model: "anthropic/claude-3-haiku",
+            messages: [{ role: "user", content: extractionPrompt }],
+            temperature: 0.3,
+            max_tokens: 1000,
+          }),
+        })
+      : await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: extractionPrompt }],
+            temperature: 0.3,
+            max_completion_tokens: 1000,
+          }),
+        });
 
     if (!response.ok) {
       const errorText = await response.text();

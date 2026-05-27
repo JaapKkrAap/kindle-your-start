@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
-import { supabase } from '../../integrations/supabase/client';
+import { getApiKeys } from '../../hooks/useApiKeys';
 import { toast } from 'sonner';
 import type { CharacterFormData, Character } from '../../types';
 
@@ -129,37 +129,95 @@ export function CharacterFormDialog({
     setIsGenerating(true);
     try {
       const vals = getValues();
-      const { data, error } = await supabase.functions.invoke('generate-character', {
-        body: {
-          existingData: {
-            name: vals.name || '',
-            backstory: vals.backstory || '',
-            personalityTraits: traits,
-            speechStyle: vals.speechStyle || '',
-            behavioralBoundaries: vals.behavioralBoundaries || '',
-            firstMessage: vals.firstMessage || '',
-          },
-          preferences: (genre || characterType || tone) ? {
-            genre: genre || undefined,
-            characterType: characterType || undefined,
-            tone: tone || undefined,
-          } : undefined,
-        },
+      const apiKeys = getApiKeys();
+
+      // Load AI settings from localStorage
+      const aiSettings = (() => {
+        try {
+          const raw = localStorage.getItem('kindle-your-start:ai-settings:v2');
+          return raw ? JSON.parse(raw) : {};
+        } catch {
+          return {};
+        }
+      })();
+
+      const provider: string = aiSettings.provider ?? 'openai';
+
+      const systemPrompt = `You are a creative writing assistant that generates character profiles for roleplay.
+Return a JSON object with these fields (all strings except personalityTraits which is a string array):
+name, backstory, personalityTraits (array of 3-5 traits), speechStyle, behavioralBoundaries, firstMessage.
+Only fill in fields that are empty/missing in the provided existingData. Return ONLY valid JSON, no markdown.`;
+
+      const existingData = {
+        name: vals.name || '',
+        backstory: vals.backstory || '',
+        personalityTraits: traits,
+        speechStyle: vals.speechStyle || '',
+        behavioralBoundaries: vals.behavioralBoundaries || '',
+        firstMessage: vals.firstMessage || '',
+      };
+
+      const preferences = (genre || characterType || tone)
+        ? { genre: genre || undefined, characterType: characterType || undefined, tone: tone || undefined }
+        : undefined;
+
+      const userPrompt = `Generate a character profile. Fill in any empty fields.\nExisting data: ${JSON.stringify(existingData)}${preferences ? `\nPreferences: ${JSON.stringify(preferences)}` : ''}`;
+
+      let apiUrl: string;
+      let model: string;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      if (provider === 'lmstudio') {
+        const endpoint = aiSettings.lmstudioEndpoint ?? 'http://localhost:1234/v1';
+        apiUrl = `${endpoint}/chat/completions`;
+        model = aiSettings.lmstudioModel ?? 'default';
+      } else if (provider === 'openrouter') {
+        if (!apiKeys.openrouterApiKey) throw new Error('No OpenRouter API key set. Add one in Settings.');
+        apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        model = aiSettings.openrouterModel ?? 'anthropic/claude-3.5-sonnet';
+        headers['Authorization'] = `Bearer ${apiKeys.openrouterApiKey}`;
+      } else {
+        if (!apiKeys.openaiApiKey) throw new Error('No OpenAI API key set. Add one in Settings.');
+        apiUrl = 'https://api.openai.com/v1/chat/completions';
+        model = aiSettings.openaiModel ?? 'gpt-4o-mini';
+        headers['Authorization'] = `Bearer ${apiKeys.openaiApiKey}`;
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.9,
+          max_tokens: 1024,
+        }),
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API error ${response.status}: ${errText}`);
+      }
+
+      const json = await response.json();
+      const rawContent: string = json.choices?.[0]?.message?.content ?? '{}';
+      const jsonStr = rawContent.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      const data = JSON.parse(jsonStr) as Record<string, unknown>;
 
       // Fill empty fields
-      if (!vals.name?.trim() && data.name) setValue('name', data.name);
-      if (!vals.backstory?.trim() && data.backstory) setValue('backstory', data.backstory);
-      if (!vals.speechStyle?.trim() && data.speechStyle) setValue('speechStyle', data.speechStyle);
-      if (!vals.behavioralBoundaries?.trim() && data.behavioralBoundaries) setValue('behavioralBoundaries', data.behavioralBoundaries);
-      if (!vals.firstMessage?.trim() && data.firstMessage) setValue('firstMessage', data.firstMessage);
+      if (!vals.name?.trim() && data.name) setValue('name', data.name as string);
+      if (!vals.backstory?.trim() && data.backstory) setValue('backstory', data.backstory as string);
+      if (!vals.speechStyle?.trim() && data.speechStyle) setValue('speechStyle', data.speechStyle as string);
+      if (!vals.behavioralBoundaries?.trim() && data.behavioralBoundaries) setValue('behavioralBoundaries', data.behavioralBoundaries as string);
+      if (!vals.firstMessage?.trim() && data.firstMessage) setValue('firstMessage', data.firstMessage as string);
 
-      if (data.personalityTraits?.length) {
+      const newTraits = data.personalityTraits as string[] | undefined;
+      if (newTraits?.length) {
         // Only add traits that aren't already there
-        const filteredNewTraits = data.personalityTraits.filter(t => !traits.includes(t));
+        const filteredNewTraits = newTraits.filter(t => !traits.includes(t));
         if (filteredNewTraits.length > 0) {
           setTraits(prev => [...prev, ...filteredNewTraits]);
         }

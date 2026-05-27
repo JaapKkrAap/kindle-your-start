@@ -791,7 +791,7 @@ export default function ChatPage() {
                   />
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Environment (Debug)</DropdownMenuLabel>
+                <DropdownMenuLabel>Scene Environment</DropdownMenuLabel>
                 <div className="grid grid-cols-2 gap-2 p-2">
                   <select
                     title="Location"

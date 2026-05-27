@@ -144,7 +144,7 @@ export function ChatMessageBubble({
             onClick={() => onToggleCanon(message.id, !message.isCanon)}
           >
             <BookMarked className={cn('h-3 w-3 mr-1', message.isCanon && 'text-primary')} />
-            {message.isCanon ? 'Canon' : 'Canon'}
+            {message.isCanon ? 'Canon' : 'Mark canon'}
           </Button>
           <Button
             variant="ghost"
