@@ -1,0 +1,517 @@
+# Instincts generated from https://github.com/JaapKkrAap/kindle-your-start
+# Generated: 2026-05-26T23:25:58.074Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: kindle-your-start-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Commit Length
+
+## Action
+
+Keep commit messages concise (~9 characters)
+
+## Evidence
+
+- Average commit message length: 9 chars
+- Based on 18 commits
+
+---
+id: kindle-your-start-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: kindle-your-start-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: kindle-your-start-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: kindle-your-start-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, hooks, integrations, lib, pages
+
+---
+id: kindle-your-start-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: kindle-your-start-workflow-update-supabase-types-and-migrations
+trigger: "when doing update supabase types and migrations"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Workflow Update Supabase Types And Migrations
+
+## Action
+
+Follow the update-supabase-types-and-migrations workflow:
+1. Edit src/integrations/supabase/types.ts to update/add types
+2. Generate a new migration SQL file in supabase/migrations/
+3. Commit both files together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/integrations/supabase/types.ts, supabase/migrations/*.sql
+
+---
+id: kindle-your-start-workflow-update-multiple-react-hooks-together
+trigger: "when doing update multiple react hooks together"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Workflow Update Multiple React Hooks Together
+
+## Action
+
+Follow the update-multiple-react-hooks-together workflow:
+1. Edit multiple files in src/hooks/ (e.g., useAISettings.ts, useCharacters.ts, useChatSessions.ts, usePersonas.ts)
+2. Commit them together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/hooks/useAISettings.ts, src/hooks/useCharacters.ts, src/hooks/useChatSessions.ts
+
+---
+id: kindle-your-start-workflow-update-component-and-related-files
+trigger: "when doing update component and related files"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Workflow Update Component And Related Files
+
+## Action
+
+Follow the update-component-and-related-files workflow:
+1. Edit a component in src/components/chat/
+2. Edit related files in src/hooks/, src/lib/, or src/types/
+3. Commit them together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/components/chat/*.tsx, src/hooks/*.ts, src/lib/*.ts
+
+---
+id: kindle-your-start-workflow-update-supabase-function
+trigger: "when doing update supabase function"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Workflow Update Supabase Function
+
+## Action
+
+Follow the update-supabase-function workflow:
+1. Edit supabase/functions/<function>/index.ts
+2. Optionally edit related src/lib/*.ts files
+3. Commit them together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: supabase/functions/chat/index.ts, supabase/functions/extract-memories/index.ts, src/lib/ai.ts
+
+---
+id: kindle-your-start-workflow-update-tsconfig-files-together
+trigger: "when doing update tsconfig files together"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Workflow Update Tsconfig Files Together
+
+## Action
+
+Follow the update-tsconfig-files-together workflow:
+1. Edit tsconfig.app.json
+2. Edit tsconfig.json
+3. Commit them together
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: tsconfig.app.json, tsconfig.json
+
+---
+id: kindle-your-start-instinct-camelcase-files
+trigger: "When creating or renaming a file in src/"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Camelcase Files
+
+## Action
+
+Use camelCase for file names.
+
+## Evidence
+
+- Pattern in namingConventions.files: camelCase
+
+---
+id: kindle-your-start-instinct-camelcase-functions
+trigger: "When defining a function."
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Camelcase Functions
+
+## Action
+
+Use camelCase for function names.
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: kindle-your-start-instinct-pascalcase-classes
+trigger: "When defining a class."
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Pascalcase Classes
+
+## Action
+
+Use PascalCase for class names.
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: kindle-your-start-instinct-screaming-snake-constants
+trigger: "When defining a constant."
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Screaming Snake Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names.
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: kindle-your-start-instinct-alias-imports
+trigger: "When importing modules."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Alias Imports
+
+## Action
+
+Use alias import style.
+
+## Evidence
+
+- Pattern in importStyle: alias
+
+---
+id: kindle-your-start-instinct-named-exports
+trigger: "When exporting code."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Named Exports
+
+## Action
+
+Use named exports.
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: kindle-your-start-instinct-try-catch-errors
+trigger: "When handling errors in code."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Try Catch Errors
+
+## Action
+
+Use try-catch blocks for error handling.
+
+## Evidence
+
+- Pattern in errorHandling.style: try-catch
+
+---
+id: kindle-your-start-instinct-test-in-separate-folder
+trigger: "When adding or updating tests."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Test In Separate Folder
+
+## Action
+
+Place test files in a separate test directory.
+
+## Evidence
+
+- Pattern in architecture.testLocation: separate
+
+---
+id: kindle-your-start-instinct-commit-freeform-short
+trigger: "When writing a commit message."
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Commit Freeform Short
+
+## Action
+
+Use a short, freeform commit message (average length ~9 characters, no enforced prefix).
+
+## Evidence
+
+- Pattern in commits.type: freeform
+- Pattern in commits.averageLength: 9
+
+---
+id: kindle-your-start-instinct-update-supabase-types-and-migrations
+trigger: "When adding or modifying a database table/column in Supabase."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Update Supabase Types And Migrations
+
+## Action
+
+Edit src/integrations/supabase/types.ts and generate a new migration SQL file in supabase/migrations/, then commit both files together.
+
+## Evidence
+
+- Workflow: update-supabase-types-and-migrations
+- Example commits and files
+
+---
+id: kindle-your-start-instinct-update-multiple-react-hooks-together
+trigger: "When adding or modifying cross-cutting state logic or feature support in hooks."
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Update Multiple React Hooks Together
+
+## Action
+
+Edit multiple files in src/hooks/ and commit them together.
+
+## Evidence
+
+- Workflow: update-multiple-react-hooks-together
+- Example commits and files
+
+---
+id: kindle-your-start-instinct-update-component-and-related-files
+trigger: "When adding or updating a feature in a component that also requires logic or type changes."
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Update Component And Related Files
+
+## Action
+
+Edit a component in src/components/chat/ and related files in src/hooks/, src/lib/, or src/types/, then commit them together.
+
+## Evidence
+
+- Workflow: update-component-and-related-files
+- Example commits and files
+
+---
+id: kindle-your-start-instinct-update-supabase-function
+trigger: "When changing server-side logic for chat or memory extraction."
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Update Supabase Function
+
+## Action
+
+Edit supabase/functions/<function>/index.ts and optionally related src/lib/*.ts files, then commit them together.
+
+## Evidence
+
+- Workflow: update-supabase-function
+- Example commits and files
+
+---
+id: kindle-your-start-instinct-update-tsconfig-files-together
+trigger: "When changing TypeScript compiler options or paths."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: JaapKkrAap/kindle-your-start
+---
+
+# Kindle Your Start Instinct Update Tsconfig Files Together
+
+## Action
+
+Edit tsconfig.app.json and tsconfig.json, then commit them together.
+
+## Evidence
+
+- Workflow: update-tsconfig-files-together
+- Example commits and files
+
